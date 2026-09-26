@@ -5,6 +5,7 @@ import ProtectedRoute from '../components/ProtectedRoute';
 import { ROLES } from '../context/AuthContext';
 
 import LoginPage from '../pages/LoginPage';
+import CadastroPage from '../pages/CadastroPage';
 import DashboardPage from '../pages/DashboardPage';
 import SensoresPage from '../pages/SensoresPage';
 import LotesPage from '../pages/LotesPage';
@@ -19,8 +20,9 @@ import ConfiguracaoPage from '../pages/ConfiguracaoPage';
 export default function AppRoutes() {
   return (
     <Routes>
-      {/* Rota Pública */}
+      {/* Rotas Públicas */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/cadastro" element={<CadastroPage />} />
 
       {/* Rotas Privadas Operacionais & Inteligência */}
       <Route

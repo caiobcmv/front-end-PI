@@ -12,24 +12,24 @@ export default function UsuariosPage() {
     <div>
       <div className="content-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h2 className="content-title">Gerenciamento de Usuários (RBAC - RF12)</h2>
+          <h2 className="content-title">Gerenciamento de Usuários</h2>
           <p className="content-subtitle">
-            Cadastro e atribuição de papéis e privilégios de acesso [Exclusivo Administrador]
+            Cadastro e controle de níveis de acesso no sistema
           </p>
         </div>
-        <button type="button" className="btn-structural" style={{ fontWeight: 'bold' }}>
+        <button type="button" className="btn-structural" style={{ fontWeight: 'bold', borderRadius: '4px' }}>
           + Cadastrar Usuário
         </button>
       </div>
 
-      <div className="structural-card">
+      <div className="structural-card" style={{ borderRadius: '8px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #ccc', textAlign: 'left' }}>
               <th style={{ padding: '0.6rem' }}>ID</th>
               <th style={{ padding: '0.6rem' }}>Nome</th>
               <th style={{ padding: '0.6rem' }}>E-mail</th>
-              <th style={{ padding: '0.6rem' }}>Papel (RBAC)</th>
+              <th style={{ padding: '0.6rem' }}>Perfil</th>
               <th style={{ padding: '0.6rem' }}>Status</th>
               <th style={{ padding: '0.6rem' }}>Ações</th>
             </tr>
@@ -41,16 +41,16 @@ export default function UsuariosPage() {
                 <td style={{ padding: '0.6rem', fontWeight: 'bold' }}>{u.nome}</td>
                 <td style={{ padding: '0.6rem' }}>{u.email}</td>
                 <td style={{ padding: '0.6rem' }}>
-                  <span style={{ border: '1px solid #ccc', padding: '0.2rem 0.4rem', fontSize: '0.8rem' }}>
+                  <span style={{ border: '1px solid #ccc', padding: '0.2rem 0.5rem', fontSize: '0.8rem', borderRadius: '4px' }}>
                     {u.papel}
                   </span>
                 </td>
-                <td style={{ padding: '0.6rem', color: '#28a745' }}>{u.status}</td>
+                <td style={{ padding: '0.6rem', color: '#28a745', fontWeight: '500' }}>{u.status}</td>
                 <td style={{ padding: '0.6rem' }}>
-                  <button type="button" className="btn-structural" style={{ fontSize: '0.8rem', marginRight: '0.4rem' }}>
+                  <button type="button" className="btn-structural" style={{ fontSize: '0.8rem', marginRight: '0.4rem', borderRadius: '4px' }}>
                     Editar
                   </button>
-                  <button type="button" className="btn-structural" style={{ fontSize: '0.8rem', color: '#d9534f' }}>
+                  <button type="button" className="btn-structural" style={{ fontSize: '0.8rem', color: '#d9534f', borderColor: '#fca5a5', borderRadius: '4px' }}>
                     Remover
                   </button>
                 </td>

@@ -3,7 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, ROLES } from '../context/AuthContext';
 import RoleSelector from '../components/RoleSelector';
 
-export default function LoginPage() {
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export default function CadastroPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -11,33 +13,34 @@ export default function LoginPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
-  const [showForgotHint, setShowForgotHint] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
 
-    if (!email.trim() || !password) {
-      setError('Preencha e-mail e senha para continuar.');
+    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
+      setError('Preencha todos os campos para criar sua conta.');
+      return;
+    }
+    if (!EMAIL_REGEX.test(email)) {
+      setError('Informe um e-mail válido.');
+      return;
+    }
+    if (password.length < 8) {
+      setError('A senha deve ter no mínimo 8 caracteres.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('As senhas não coincidem.');
       return;
     }
 
-    // Define o nome digitado ou deriva a partir do e-mail se estiver em branco
-    let displayName = name.trim();
-    if (!displayName) {
-      displayName = email.split('@')[0].replace(/[._]/g, ' ').trim();
-      if (displayName) {
-        displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
-      }
-    }
-    if (!displayName) {
-      displayName = 'Usuário';
-    }
-
-    login(selectedRole, displayName, email.trim());
+    // Sem backend real ainda: cria a conta e já autentica o usuário.
+    login(selectedRole, name.trim(), email.trim());
     navigate('/');
   };
 
@@ -46,22 +49,22 @@ export default function LoginPage() {
       <div className="structural-card auth-card">
         <div className="auth-header">
           <span className="brand-logo" style={{ borderRadius: '4px', background: '#2d6a4f', color: '#ffffff', padding: '0.25rem 0.75rem', border: 'none' }}>IoT Agro</span>
-          <h2>Acesse sua conta</h2>
+          <h2>Crie uma conta</h2>
           <p className="auth-subtitle">
             Dashboard Climático e Logístico em Nuvem (Petrolina/Juazeiro)
           </p>
         </div>
 
-        <form onSubmit={handleLogin} className="auth-form" noValidate>
+        <form onSubmit={handleSubmit} className="auth-form" noValidate>
           <RoleSelector value={selectedRole} onChange={setSelectedRole} />
 
           <div className="form-group">
-            <label htmlFor="login-name">Nome do Usuário (opcional)</label>
+            <label htmlFor="reg-name">Nome</label>
             <input
-              id="login-name"
+              id="reg-name"
               type="text"
               className="form-input"
-              placeholder="Ex: Carlos Mendes"
+              placeholder="Seu nome completo"
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoComplete="name"
@@ -69,29 +72,29 @@ export default function LoginPage() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="login-email">E-mail</label>
+            <label htmlFor="reg-email">E-mail</label>
             <input
-              id="login-email"
+              id="reg-email"
               type="email"
               className="form-input"
               placeholder="seuemail@dominio.com.br"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              autoComplete="username"
+              autoComplete="email"
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="login-password">Senha</label>
+            <label htmlFor="reg-password">Senha</label>
             <div className="form-input-wrapper">
               <input
-                id="login-password"
+                id="reg-password"
                 type={showPassword ? 'text' : 'password'}
                 className="form-input"
-                placeholder="••••••••"
+                placeholder="Mínimo 8 caracteres"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
+                autoComplete="new-password"
               />
               <button
                 type="button"
@@ -103,29 +106,27 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="auth-row-between">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-              />
-              Lembrar desta conta
-            </label>
-            <button
-              type="button"
-              className="inline-link"
-              onClick={() => setShowForgotHint((prev) => !prev)}
-            >
-              Esqueceu?
-            </button>
+          <div className="form-group">
+            <label htmlFor="reg-confirm-password">Repetir Senha</label>
+            <input
+              id="reg-confirm-password"
+              type={showPassword ? 'text' : 'password'}
+              className="form-input"
+              placeholder="Repita a senha"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+            />
           </div>
 
-          {showForgotHint && (
-            <p className="form-hint">
-              Recuperação de senha ainda não implementada nesta versão.
-            </p>
-          )}
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+            />
+            Lembrar desta conta
+          </label>
 
           {error && <p className="form-error">{error}</p>}
 
@@ -134,14 +135,14 @@ export default function LoginPage() {
             className="btn-structural"
             style={{ width: '100%', padding: '0.75rem', fontWeight: 'bold' }}
           >
-            Entrar
+            Cadastrar
           </button>
         </form>
 
         <p className="auth-footer-note">Acesso via MFA (Multi-Factor Authentication)</p>
 
         <p className="auth-switch">
-          Ainda não tem conta? <Link to="/cadastro">Cadastre-se</Link>
+          Já tem conta? <Link to="/login">Entrar</Link>
         </p>
       </div>
     </div>

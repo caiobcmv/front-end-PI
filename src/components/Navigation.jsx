@@ -14,19 +14,16 @@ export default function Navigation() {
           <ul className="nav-list">
             <li className="nav-item">
               <NavLink to="/" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                <span className="nav-icon">[ 📊 ]</span>
                 <span className="nav-text">Dashboard Geral</span>
               </NavLink>
             </li>
             <li className="nav-item">
               <NavLink to="/sensores" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                <span className="nav-icon">[ 📡 ]</span>
                 <span className="nav-text">Status de Sensores</span>
               </NavLink>
             </li>
             <li className="nav-item">
               <NavLink to="/lotes" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                <span className="nav-icon">[ 📦 ]</span>
                 <span className="nav-text">Lista de Lotes</span>
               </NavLink>
             </li>
@@ -38,20 +35,17 @@ export default function Navigation() {
           <ul className="nav-list">
             <li className="nav-item">
               <NavLink to="/previsao" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                <span className="nav-icon">[ 🎯 ]</span>
-                <span className="nav-text">Previsão & Safra</span>
+                <span className="nav-text">Previsão e Safra</span>
               </NavLink>
             </li>
             <li className="nav-item">
               <NavLink to="/historico" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                <span className="nav-icon">[ 📈 ]</span>
                 <span className="nav-text">Histórico Climático</span>
               </NavLink>
             </li>
             <li className="nav-item">
               <NavLink to="/mercado" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                <span className="nav-icon">[ 🌐 ]</span>
-                <span className="nav-text">Mercado & Exportação</span>
+                <span className="nav-text">Mercado e Exportação</span>
               </NavLink>
             </li>
           </ul>
@@ -63,19 +57,16 @@ export default function Navigation() {
             <ul className="nav-list">
               <li className="nav-item">
                 <NavLink to="/usuarios" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                  <span className="nav-icon">[ 👥 ]</span>
-                  <span className="nav-text">Usuários (RBAC)</span>
+                  <span className="nav-text">Gestão de Usuários</span>
                 </NavLink>
               </li>
               <li className="nav-item">
                 <NavLink to="/auditoria" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                  <span className="nav-icon">[ 🛡️ ]</span>
-                  <span className="nav-text">Auditoria & Testes</span>
+                  <span className="nav-text">Auditoria e Logs</span>
                 </NavLink>
               </li>
               <li className="nav-item">
                 <NavLink to="/configuracao" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                  <span className="nav-icon">[ ⚙️ ]</span>
                   <span className="nav-text">Configurações</span>
                 </NavLink>
               </li>
