@@ -3,9 +3,10 @@ import React, { createContext, useContext, useState } from 'react';
 const AuthContext = createContext();
 
 export const ROLES = {
-  PRODUTOR: 'Produtor/Exportador',
-  ANALISTA: 'Analista de Dados',
-  ADMIN: 'Administrador do Sistema',
+  PRODUTOR: 'Produtor',
+  LOGISTICA: 'Logística Fria',
+  ANALISTA: 'Logística Fria',
+  ADMIN: 'Admin IoT',
 };
 
 export function AuthProvider({ children }) {
