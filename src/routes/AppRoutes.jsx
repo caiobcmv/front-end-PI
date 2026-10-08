@@ -120,7 +120,7 @@ export default function AppRoutes() {
       <Route
         path="/configuracao"
         element={
-          <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+          <ProtectedRoute>
             <Layout>
               <ConfiguracaoPage />
             </Layout>

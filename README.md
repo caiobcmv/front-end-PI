@@ -130,6 +130,8 @@ O estado de autenticação é mantido via `localStorage` para persistência entr
 | RF10 | Histórico climático regional |
 | RF11 | Auditoria e logs do sistema (Admin) |
 | RF12 | Configurações do sistema (Admin) |
+| FE07 | Animação de carregamento para login |
+| FE-D02 | Cliente HTTP e tratamento de erros base |
 
 ---
 

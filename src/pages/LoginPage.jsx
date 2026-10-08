@@ -1,45 +1,58 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth, ROLES } from '../context/AuthContext';
-import RoleSelector from '../components/RoleSelector';
+import { useAuth } from '../context/AuthContext';
+import { authService } from '../services/authService';
+import { HttpError } from '../services/httpClient';
 import farmImage from '../assets/auth-farm.jpg';
 
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const [selectedRole, setSelectedRole] = useState(ROLES.PRODUTOR);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [showForgotHint, setShowForgotHint] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
 
     const targetEmail = email.trim() || 'gestao@frutas.agro.br';
+    const targetPassword = password.trim() || '••••••••••••';
 
-    if (!targetEmail || !password) {
-      setError('Preencha e-mail e senha para continuar.');
-      return;
+    setIsLoading(true);
+
+    try {
+      // FE-D02: Cliente HTTP com tratamento de erros base e simulação de latência
+      const result = await authService.login(targetEmail, targetPassword);
+      login(result.user.role, result.user.name, result.user.email);
+      navigate('/');
+    } catch (err) {
+      if (err instanceof HttpError) {
+        setError(err.friendlyMessage);
+      } else {
+        setError(err.message || 'Falha ao autenticar. Tente novamente.');
+      }
+    } finally {
+      setIsLoading(false);
     }
-
-    let displayName = targetEmail.split('@')[0].replace(/[._]/g, ' ').trim();
-    if (displayName) {
-      displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
-    } else {
-      displayName = 'Usuário';
-    }
-
-    login(selectedRole, displayName, targetEmail);
-    navigate('/');
   };
 
   return (
     <div className="auth-split-layout">
+      {/* Definição SVG do ClipPath com Curva Orgânica Suave */}
+      <svg width="0" height="0" style={{ position: 'absolute', pointerEvents: 'none' }}>
+        <defs>
+          <clipPath id="authCurve" clipPathUnits="objectBoundingBox">
+            <path d="M 0,0 L 0.77,0 C 0.88,0.18 1,0.34 1,0.48 C 1,0.64 0.88,0.82 0.72,1 L 0,1 Z" />
+          </clipPath>
+        </defs>
+      </svg>
+
       {/* Lado Esquerdo: Imagem Agrícola com Curva */}
       <div className="auth-visual-column">
         <div className="auth-visual-wrapper">
@@ -51,24 +64,28 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Lado Direito: Formulário de Login */}
+      {/* Lado Direito: Painel Escuro e Formulário */}
       <div className="auth-form-column">
         <div className="auth-form-container">
           <div className="auth-header-block">
-            <span className="auth-pretitle">Bem-vindo de volta!</span>
+            <span className="auth-pretitle">Bem vindo (a)!</span>
             <h1 className="auth-heading">Acesse sua conta</h1>
           </div>
 
-          <form onSubmit={handleLogin} className="auth-modern-form" noValidate>
-            {/* Seletor de Perfil Estilizado */}
-            <RoleSelector value={selectedRole} onChange={setSelectedRole} />
+          {/* FE07: Linha animada de progresso durante carregamento */}
+          {isLoading && (
+            <div className="auth-loading-bar-track" aria-hidden="true">
+              <div className="auth-loading-bar-fill" />
+            </div>
+          )}
 
+          <form onSubmit={handleLogin} className="auth-modern-form" noValidate>
             {/* Campo E-mail */}
             <div className="auth-field-group">
               <label htmlFor="login-email" className="auth-field-label">
                 E-MAIL
               </label>
-              <div className="auth-input-container">
+              <div className={`auth-input-container ${isLoading ? 'is-disabled' : ''}`}>
                 <span className="auth-input-icon">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect width="20" height="16" x="2" y="4" rx="2"/>
@@ -81,6 +98,7 @@ export default function LoginPage() {
                   className="auth-text-input"
                   placeholder="gestao@frutas.agro.br"
                   value={email}
+                  disabled={isLoading}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="username"
                 />
@@ -92,7 +110,7 @@ export default function LoginPage() {
               <label htmlFor="login-password" className="auth-field-label">
                 SENHA
               </label>
-              <div className="auth-input-container">
+              <div className={`auth-input-container ${isLoading ? 'is-disabled' : ''}`}>
                 <span className="auth-input-icon">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
@@ -103,8 +121,9 @@ export default function LoginPage() {
                   id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   className="auth-text-input"
-                  placeholder="••••••••"
+                  placeholder="••••••••••••"
                   value={password}
+                  disabled={isLoading}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                 />
@@ -112,6 +131,7 @@ export default function LoginPage() {
                   type="button"
                   className="auth-eye-btn"
                   onClick={() => setShowPassword((prev) => !prev)}
+                  disabled={isLoading}
                   tabIndex={-1}
                   aria-label={showPassword ? 'Ocultar senha' : 'Exibir senha'}
                 >
@@ -139,6 +159,7 @@ export default function LoginPage() {
                   type="checkbox"
                   className="auth-checkbox"
                   checked={remember}
+                  disabled={isLoading}
                   onChange={(e) => setRemember(e.target.checked)}
                 />
                 <span className="auth-checkbox-text">Lembrar desta conta</span>
@@ -146,6 +167,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 className="auth-inline-forgot"
+                disabled={isLoading}
                 onClick={() => setShowForgotHint((prev) => !prev)}
               >
                 Esqueceu?
@@ -154,22 +176,45 @@ export default function LoginPage() {
 
             {showForgotHint && (
               <div className="auth-hint-box">
-                Recuperação de senha: entre em contato com o administrador do sistema.
+                Recuperação de senha: entre em contato com o suporte ou gestor da fazenda.
               </div>
             )}
 
-            {/* Mensagem de Erro */}
-            {error && <div className="auth-error-message">{error}</div>}
+            {/* Mensagem de Erro (FE-D02) */}
+            {error && (
+              <div className="auth-error-banner" role="alert">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <span>{error}</span>
+              </div>
+            )}
 
-            {/* Botão Entrar */}
-            <button type="submit" className="auth-primary-btn">
-              ENTRAR
+            {/* Botão Entrar com Animação de Carregamento (FE07) */}
+            <button
+              type="submit"
+              className={`auth-primary-btn ${isLoading ? 'is-loading' : ''}`}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <span className="auth-btn-loading-wrapper">
+                  <svg className="auth-btn-spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
+                    <path d="M12 2a10 10 0 0 1 10 10" />
+                  </svg>
+                  <span>AUTENTICANDO...</span>
+                </span>
+              ) : (
+                <span>ENTRAR</span>
+              )}
             </button>
           </form>
 
           {/* MFA Informação */}
           <div className="auth-mfa-badge">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
               <path d="m9 12 2 2 4-4"/>
             </svg>
