@@ -1,4 +1,6 @@
 import React from 'react';
+import LineChartCard from '../components/LineChartCard';
+import { temperaturaAr, umidadeSolo, temperaturaSolo } from '../mocks/sensorSeries';
 
 export default function SensoresPage() {
   return (
@@ -28,6 +30,38 @@ export default function SensoresPage() {
           <p style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#2d6a4f' }}>Online</p>
           <p style={{ fontSize: '0.85rem', color: '#666' }}>Última leitura realizada há 15 segundos</p>
         </div>
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+          gap: '1rem',
+          marginBottom: '1.5rem',
+        }}
+      >
+        <LineChartCard
+          title="Temperatura do ar"
+          unit="°C"
+          series={temperaturaAr}
+          range={{ min: 24, max: 30 }}
+          source="sensor"
+        />
+        <LineChartCard
+          title="Umidade do solo"
+          unit="%"
+          series={umidadeSolo}
+          range={{ min: 40, max: 70 }}
+          source="sensor"
+          color="#0d9488"
+        />
+        <LineChartCard
+          title="Temperatura do solo"
+          unit="°C"
+          series={temperaturaSolo}
+          source="estimado"
+          color="#f59e0b"
+        />
       </div>
 
       <div className="structural-card" style={{ borderRadius: '8px' }}>
