@@ -1,0 +1,69 @@
+/* Estilo provisório: cores e espaçamentos concentrados aqui para facilitar o ajuste quando o design fechar. */
+.lc-card {
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--card-border, #edf0f2);
+  border-radius: 8px;
+  box-shadow: var(--card-shadow, none);
+  padding: 1rem;
+}
+.lc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.lc-title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.lc-current {
+  margin: 0.25rem 0 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--color-green-dark, #0f382c);
+}
+.lc-badges {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.lc-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.55rem;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+.lc-badge--ideal { background: var(--color-green-soft, #dcfce7); color: #15803d; }
+.lc-badge--fora { background: var(--color-red-soft, #fee2e2); color: #b91c1c; }
+.lc-badge--sem-faixa { background: #f1f5f9; color: #64748b; }
+.lc-badge--source { background: var(--color-teal-soft, #ccfbf1); color: #0f766e; }
+
+.lc-periods {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin: 0.75rem 0;
+}
+.lc-period {
+  border: 1px solid var(--card-border, #edf0f2);
+  background: #fff;
+  color: #374151;
+  font-size: 0.78rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.lc-period:hover { background: #f8fafb; }
+.lc-period--active {
+  background: var(--color-green-dark, #0f382c);
+  border-color: var(--color-green-dark, #0f382c);
+  color: #fff;
+}
+.lc-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
