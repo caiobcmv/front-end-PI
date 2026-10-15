@@ -1,20 +1,14 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import ProtectedRoute from '../components/ProtectedRoute';
-import { ROLES } from '../context/AuthContext';
 
 import LoginPage from '../pages/LoginPage';
 import CadastroPage from '../pages/CadastroPage';
 import DashboardPage from '../pages/DashboardPage';
-import SensoresPage from '../pages/SensoresPage';
-import LotesPage from '../pages/LotesPage';
-import LoteDetalhePage from '../pages/LoteDetalhePage';
-import PrevisaoPage from '../pages/PrevisaoPage';
+import LogisticaFriaPage from '../pages/LogisticaFriaPage';
 import HistoricoPage from '../pages/HistoricoPage';
-import MercadoPage from '../pages/MercadoPage';
-import UsuariosPage from '../pages/UsuariosPage';
-import AuditoriaPage from '../pages/AuditoriaPage';
+import AlertasPage from '../pages/AlertasPage';
 import ConfiguracaoPage from '../pages/ConfiguracaoPage';
 
 export default function AppRoutes() {
@@ -24,7 +18,7 @@ export default function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/cadastro" element={<CadastroPage />} />
 
-      {/* Rotas Privadas Operacionais & Inteligência */}
+      {/* 1. Visão Geral (Dashboard) */}
       <Route
         path="/"
         element={
@@ -35,46 +29,24 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
+      {/* 2. Logística Fria */}
       <Route
-        path="/sensores"
+        path="/logistica"
         element={
           <ProtectedRoute>
             <Layout>
-              <SensoresPage />
+              <LogisticaFriaPage />
             </Layout>
           </ProtectedRoute>
         }
       />
       <Route
         path="/lotes"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <LotesPage />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={<Navigate to="/logistica" replace />}
       />
-      <Route
-        path="/lotes/:id"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <LoteDetalhePage />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/previsao"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <PrevisaoPage />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
+
+      {/* 3. Histórico Safra */}
       <Route
         path="/historico"
         element={
@@ -85,38 +57,24 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
+      {/* 4. Alertas */}
       <Route
-        path="/mercado"
+        path="/alertas"
         element={
           <ProtectedRoute>
             <Layout>
-              <MercadoPage />
+              <AlertasPage />
             </Layout>
           </ProtectedRoute>
         }
+      />
+      <Route
+        path="/mercado"
+        element={<Navigate to="/alertas" replace />}
       />
 
-      {/* Rotas Restritas - Administrador (RBAC - RF08, RF11, RF12) */}
-      <Route
-        path="/usuarios"
-        element={
-          <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-            <Layout>
-              <UsuariosPage />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/auditoria"
-        element={
-          <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
-            <Layout>
-              <AuditoriaPage />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
+      {/* 5. Configurações */}
       <Route
         path="/configuracao"
         element={

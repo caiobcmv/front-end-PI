@@ -3,9 +3,9 @@ import React, { createContext, useContext, useState } from 'react';
 const AuthContext = createContext();
 
 export const ROLES = {
+  GESTORA: 'Gestora',
   PRODUTOR: 'Produtor',
   LOGISTICA: 'Logística Fria',
-  ANALISTA: 'Logística Fria',
   ADMIN: 'Admin IoT',
 };
 
@@ -13,24 +13,25 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
       const savedUser = localStorage.getItem('user');
-      return savedUser ? JSON.parse(savedUser) : { name: 'Carlos Mendes', role: ROLES.PRODUTOR, email: 'carlos@agro.com' };
+      return savedUser ? JSON.parse(savedUser) : { name: 'Maria Clara', role: 'Gestora', email: 'maria.clara@raizagro.agr.br' };
     } catch {
-      return { name: 'Carlos Mendes', role: ROLES.PRODUTOR, email: 'carlos@agro.com' };
+      return { name: 'Maria Clara', role: 'Gestora', email: 'maria.clara@raizagro.agr.br' };
     }
   });
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     try {
       const auth = localStorage.getItem('isAuthenticated');
-      return auth !== null ? JSON.parse(auth) : true;
+      return auth !== null ? JSON.parse(auth) : false;
     } catch {
-      return true;
+      return false;
     }
   });
 
-  const login = (role = ROLES.PRODUTOR, name = 'Carlos Mendes', email = '') => {
-    const userName = name && name.trim() ? name.trim() : 'Usuário';
-    const newUser = { name: userName, role, email };
+  const login = (role = 'Gestora', name = 'Maria Clara', email = 'maria.clara@raizagro.agr.br') => {
+    const userName = name && name.trim() ? name.trim() : 'Maria Clara';
+    const userRole = role && role.trim() ? role.trim() : 'Gestora';
+    const newUser = { name: userName, role: userRole, email: email || 'maria.clara@raizagro.agr.br' };
     setUser(newUser);
     setIsAuthenticated(true);
     try {
