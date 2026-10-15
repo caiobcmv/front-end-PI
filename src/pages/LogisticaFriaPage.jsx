@@ -1,14 +1,36 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import TopHeader from '../components/TopHeader';
 
-/* ─── Telemetry Sparkline Chart for Reefer #04 (04:00, 08:00, 12:00, Agora) ─── */
-function ReeferThermalHistoryChart() {
+/* ─── Telemetry Sparkline Chart for Reefer (with exact smooth SVG curve, safe margins & vertex dots) ─── */
+function ReeferThermalHistoryChart({ sparklineData = [], safeMin = '0.5°C', safeMax = '2.0°C' }) {
+  const [hoveredPoint, setHoveredPoint] = useState(null);
+
+  // Default points for Reefer #04 (04:00, 08:00, 12:00, Agora) matching image
+  const defaultPoints = [
+    { time: '04:00', temp: '1.1°C', cx: 24, cy: 40 },
+    { time: '08:00', temp: '1.2°C', cx: 114, cy: 34 },
+    { time: '12:00', temp: '1.4°C', cx: 206, cy: 20 },
+    { time: 'Agora', temp: '1.3°C', cx: 296, cy: 28 },
+  ];
+
+  const points = sparklineData.length > 0 ? sparklineData : defaultPoints;
+
+  // Build smooth bezier path string connecting the 4 points
+  const p1 = points[0];
+  const p2 = points[1];
+  const p3 = points[2];
+  const p4 = points[3];
+
+  const curvePath = `M ${p1.cx} ${p1.cy} C ${(p1.cx + p2.cx) / 2} ${p1.cy}, ${(p1.cx + p2.cx) / 2} ${p2.cy}, ${p2.cx} ${p2.cy} C ${(p2.cx + p3.cx) / 2} ${p2.cy}, ${(p2.cx + p3.cx) / 2} ${p3.cy}, ${p3.cx} ${p3.cy} C ${(p3.cx + p4.cx) / 2} ${p3.cy}, ${(p3.cx + p4.cx) / 2} ${p4.cy}, ${p4.cx} ${p4.cy}`;
+  const areaPath = `${curvePath} L ${p4.cx} 70 L ${p1.cx} 70 Z`;
+
   return (
     <div className="reefer-sparkline-wrap">
       {/* SVG Vector Chart */}
       <svg
         className="reefer-sparkline-svg"
-        viewBox="0 0 280 64"
+        viewBox="0 0 320 72"
         preserveAspectRatio="none"
         fill="none"
       >
@@ -19,76 +41,160 @@ function ReeferThermalHistoryChart() {
           </linearGradient>
         </defs>
 
-        {/* Safe margin dashed reference lines */}
+        {/* Safe margin dashed reference lines (2.0°C and 0.5°C limits) */}
         <line
-          x1="10"
-          y1="16"
-          x2="270"
-          y2="16"
+          x1="12"
+          y1="15"
+          x2="308"
+          y2="15"
           stroke="#94a3b8"
-          strokeWidth="0.8"
-          strokeDasharray="3 3"
-          opacity="0.4"
+          strokeWidth="1"
+          strokeDasharray="4 4"
+          opacity="0.45"
         />
         <line
-          x1="10"
-          y1="48"
-          x2="270"
-          y2="48"
+          x1="12"
+          y1="55"
+          x2="308"
+          y2="55"
           stroke="#94a3b8"
-          strokeWidth="0.8"
-          strokeDasharray="3 3"
-          opacity="0.4"
+          strokeWidth="1"
+          strokeDasharray="4 4"
+          opacity="0.45"
         />
 
         {/* Gradient Area Fill */}
-        <path
-          d="M 20 38 C 60 38, 60 32, 100 32 C 140 32, 140 18, 180 18 C 220 18, 220 25, 260 25 L 260 62 L 20 62 Z"
-          fill="url(#reeferAreaGrad)"
-        />
+        <path d={areaPath} fill="url(#reeferAreaGrad)" />
 
         {/* Smooth Emerald Curve Line */}
         <path
-          d="M 20 38 C 60 38, 60 32, 100 32 C 140 32, 140 18, 180 18 C 220 18, 220 25, 260 25"
+          d={curvePath}
           stroke="#10b981"
-          strokeWidth="2.4"
+          strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
 
         {/* Vertex Data Dots */}
-        <circle cx="20" cy="38" r="3.5" fill="#10b981" stroke="#ffffff" strokeWidth="1.8" />
-        <circle cx="100" cy="32" r="3.5" fill="#10b981" stroke="#ffffff" strokeWidth="1.8" />
-        <circle cx="180" cy="18" r="3.5" fill="#10b981" stroke="#ffffff" strokeWidth="1.8" />
-        <circle cx="260" cy="25" r="3.5" fill="#10b981" stroke="#ffffff" strokeWidth="1.8" />
+        {points.map((pt, idx) => {
+          const isHovered = hoveredPoint?.time === pt.time;
+          return (
+            <g
+              key={idx}
+              onMouseEnter={() => setHoveredPoint(pt)}
+              onMouseLeave={() => setHoveredPoint(null)}
+              style={{ cursor: 'pointer' }}
+            >
+              <circle
+                cx={pt.cx}
+                cy={pt.cy}
+                r={isHovered ? 5.5 : 4}
+                fill="#10b981"
+                stroke="#ffffff"
+                strokeWidth="2.2"
+                style={{ transition: 'r 0.15s ease' }}
+              />
+              {isHovered && (
+                <text
+                  x={pt.cx}
+                  y={pt.cy - 10}
+                  textAnchor="middle"
+                  fill="#064e3b"
+                  fontSize="10"
+                  fontWeight="bold"
+                  fontFamily="system-ui, sans-serif"
+                >
+                  {pt.temp}
+                </text>
+              )}
+            </g>
+          );
+        })}
       </svg>
 
       {/* 4 Timestamp & Temp Labels */}
       <div className="reefer-sparkline-labels">
-        <div className="spark-lbl-col">
-          <span className="spark-lbl-time">04:00</span>
-          <span className="spark-lbl-temp">(1.1°C)</span>
-        </div>
-        <div className="spark-lbl-col">
-          <span className="spark-lbl-time">08:00</span>
-          <span className="spark-lbl-temp">(1.2°C)</span>
-        </div>
-        <div className="spark-lbl-col">
-          <span className="spark-lbl-time">12:00</span>
-          <span className="spark-lbl-temp">(1.4°C)</span>
-        </div>
-        <div className="spark-lbl-col">
-          <span className="spark-lbl-time">Agora</span>
-          <span className="spark-lbl-temp">(1.3°C)</span>
-        </div>
+        {points.map((pt, idx) => (
+          <div
+            key={idx}
+            className="spark-lbl-col"
+            style={{
+              opacity: hoveredPoint && hoveredPoint.time !== pt.time ? 0.55 : 1,
+              transition: 'opacity 0.2s',
+            }}
+          >
+            <span className="spark-lbl-time">{pt.time}</span>
+            <span className="spark-lbl-temp">({pt.temp})</span>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
 export default function LogisticaFriaPage() {
+  const navigate = useNavigate();
   const [selectedLotTab, setSelectedLotTab] = useState('lote04');
   const [filterFrota, setFilterFrota] = useState('todos');
+
+  // Lot Details Configuration (Matches screenshot for Lote #04 and supports Lote #08)
+  const isLot04 = selectedLotTab === 'lote04';
+
+  const currentLotData = isLot04
+    ? {
+        lotTabTitle: 'Lote #04 - Uva Vitória (Petrolina → Pecém)',
+        estimatedPosition: 'Posição estimada às 15:15',
+        highway: 'BR-116 NORTE',
+        routeTitle: 'Rota estimada',
+        routeSub: 'Origem, checkpoints e posição estimada',
+        progressPct: 62,
+        progressText: 'Progresso do Percurso: 62% concluído',
+        progressDistance: '490 km de 790 km percorridos (Restam 300 km)',
+        saida: 'Saída: Petrolina (06:00)',
+        eta: 'Previsão Chegada no Porto (ETA): Hoje às 22:45',
+        destino: 'Pecém / CE',
+        reeferTitle: 'Baú Frigorífico #04',
+        conservationStatus: 'Perfeita Conservação',
+        temp: '+1.3°C',
+        tempAlvoLines: ['Alvo:', '0.5°C a 2.0°C'],
+        tempSensorMeta: 'Uva Vitória Exportação • Sonda Central e Traseira',
+        humidity: '92%',
+        humiditySub: 'Evita desidratação do engaço',
+        safeMargin: 'Margem segura: 0.5°C – 2.0°C',
+        sparklineData: [
+          { time: '04:00', temp: '1.1°C', cx: 24, cy: 40 },
+          { time: '08:00', temp: '1.2°C', cx: 114, cy: 34 },
+          { time: '12:00', temp: '1.4°C', cx: 206, cy: 20 },
+          { time: 'Agora', temp: '1.3°C', cx: 296, cy: 28 },
+        ],
+      }
+    : {
+        lotTabTitle: 'Lote #08 - Manga Palmer (Suape)',
+        estimatedPosition: 'Posição estimada às 14:40',
+        highway: 'BR-232 LESTE',
+        routeTitle: 'Rota estimada',
+        routeSub: 'Origem, checkpoints e posição estimada',
+        progressPct: 28,
+        progressText: 'Progresso do Percurso: 28% concluído',
+        progressDistance: '210 km de 720 km percorridos (Restam 510 km)',
+        saida: 'Saída: Petrolina (18:30)',
+        eta: 'Previsão Chegada no Porto (ETA): Amanhã às 05:30',
+        destino: 'Suape / PE',
+        reeferTitle: 'Baú Frigorífico #08',
+        conservationStatus: 'Perfeita Conservação',
+        temp: '+11.2°C',
+        tempAlvoLines: ['Alvo:', '10.0°C a 12.0°C'],
+        tempSensorMeta: 'Manga Palmer Maturação Nível 2 • Sonda Palete Frontal',
+        humidity: '88%',
+        humiditySub: 'Controle de desidratação e etileno',
+        safeMargin: 'Margem segura: 10.0°C – 12.0°C',
+        sparklineData: [
+          { time: '04:00', temp: '11.0°C', cx: 24, cy: 38 },
+          { time: '08:00', temp: '11.1°C', cx: 114, cy: 32 },
+          { time: '12:00', temp: '11.3°C', cx: 206, cy: 22 },
+          { time: 'Agora', temp: '11.2°C', cx: 296, cy: 26 },
+        ],
+      };
 
   return (
     <div className="dashboard-container logistica-screen-container">
@@ -203,48 +309,55 @@ export default function LogisticaFriaPage() {
           {/* Current estimated position status badge */}
           <div className="route-position-pill-row">
             <span className="pos-badge-live">
-              <span className="dot-mini-green" /> Posição estimada às 15:15
+              <span className="dot-mini-green" /> {currentLotData.estimatedPosition}
             </span>
-            <span className="pos-badge-highway">BR-116 NORTE</span>
+            <span className="pos-badge-highway">{currentLotData.highway}</span>
           </div>
 
           {/* Dark Simulated Route Canvas/Map */}
           <div className="route-dark-map-box">
             <div className="route-map-top-bar">
               <div className="route-map-titles">
-                <strong className="route-map-title">Rota estimada</strong>
-                <span className="route-map-sub">Origem, checkpoints e posição estimada</span>
+                <strong className="route-map-title">{currentLotData.routeTitle}</strong>
+                <span className="route-map-sub">{currentLotData.routeSub}</span>
               </div>
               <span className="badge-simulado">Simulado</span>
             </div>
 
             {/* Visual Checkpoints Node Line */}
             <div className="route-checkpoints-track">
+              {/* Background horizontal track segment */}
+              <div className="route-track-bg-line">
+                <div className="route-track-filled-bar" style={{ width: isLot04 ? '66%' : '38%' }} />
+                <div className="route-track-dimmed-bar" />
+              </div>
+
+              {/* Node 1: Origem */}
               <div className="checkpoint-node">
                 <div className="node-dot node-origem" />
                 <span className="node-label">Origem</span>
               </div>
 
-              <div className="checkpoint-line-segment filled" />
-
+              {/* Node 2: Checkpoint 1 */}
               <div className="checkpoint-node">
-                <div className="node-dot node-passed" />
+                <div className={`node-dot ${isLot04 ? 'node-passed' : 'node-current'}`} />
                 <span className="node-label">Checkpoint 1</span>
               </div>
 
-              <div className="checkpoint-line-segment filled" />
-
-              {/* Active Current Position Node with Callout */}
+              {/* Node 3: Checkpoint 2 (Active estimated position on Lote 04) */}
               <div className="checkpoint-node active-node">
-                <div className="active-callout-pill">Posição estimada</div>
-                <div className="node-dot node-current">
-                  <div className="pulse-ring" />
+                {isLot04 && (
+                  <div className="active-callout-pill">
+                    Posição estimada
+                  </div>
+                )}
+                <div className={`node-dot ${isLot04 ? 'node-current' : 'node-dest'}`}>
+                  {isLot04 && <div className="pulse-ring" />}
                 </div>
                 <span className="node-label">Checkpoint 2</span>
               </div>
 
-              <div className="checkpoint-line-segment remaining" />
-
+              {/* Node 4: Destino */}
               <div className="checkpoint-node">
                 <div className="node-dot node-dest" />
                 <span className="node-label">Destino</span>
@@ -255,29 +368,29 @@ export default function LogisticaFriaPage() {
           {/* Progress Bar under dark container */}
           <div className="route-progress-details-bar">
             <div className="prog-text-row">
-              <strong className="prog-label-main">Progresso do Percurso: 62% concluído</strong>
-              <span className="prog-label-sub">490 km de 790 km percorridos (Restam 300 km)</span>
+              <strong className="prog-label-main">{currentLotData.progressText}</strong>
+              <span className="prog-label-sub">{currentLotData.progressDistance}</span>
             </div>
             <div className="prog-track-groove">
-              <div className="prog-fill-emerald" style={{ width: '62%' }} />
+              <div className="prog-fill-emerald" style={{ width: `${currentLotData.progressPct}%` }} />
             </div>
             <div className="prog-timestamps-row">
-              <span>Saída: Petrolina (06:00)</span>
-              <strong>Previsão Chegada no Porto (ETA): Hoje às 22:45</strong>
-              <span>Pecém / CE</span>
+              <span>{currentLotData.saida}</span>
+              <strong>{currentLotData.eta}</strong>
+              <span>{currentLotData.destino}</span>
             </div>
           </div>
         </div>
 
-        {/* Right Card: TELEMETRIA LOTE ATIVO (Reefer #04) */}
+        {/* Right Card: TELEMETRIA LOTE ATIVO (Reefer #04 / #08) */}
         <div className="dash-white-card logistica-telemetry-panel-card">
           <div className="telemetry-panel-header">
             <div>
               <span className="telemetry-meta-pretitle">TELEMETRIA LOTE ATIVO</span>
-              <h2 className="telemetry-main-title">Baú Frigorífico #04</h2>
+              <h2 className="telemetry-main-title">{currentLotData.reeferTitle}</h2>
             </div>
             <span className="badge-pill badge-green dot-inside">
-              <span className="dot-mini-green" /> Perfeita Conservação
+              <span className="dot-mini-green" /> {currentLotData.conservationStatus}
             </span>
           </div>
 
@@ -287,9 +400,9 @@ export default function LogisticaFriaPage() {
               <span className="metric-headline-label">Temperatura Interna Atual</span>
             </div>
             <div className="temp-hero-badge-row">
-              <span className="temp-huge-num">+1.3°C</span>
+              <span className="temp-huge-num">{currentLotData.temp}</span>
               <span className="badge-pill badge-green-light-pill">
-                Alvo:<br />0.5°C a 2.0°C
+                {currentLotData.tempAlvoLines[0]}<br />{currentLotData.tempAlvoLines[1]}
               </span>
               <div className="temp-thermometer-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -297,32 +410,32 @@ export default function LogisticaFriaPage() {
                 </svg>
               </div>
             </div>
-            <span className="temp-sensor-meta">Uva Vitória Exportação • Sonda Central e Traseira</span>
+            <span className="temp-sensor-meta">{currentLotData.tempSensorMeta}</span>
           </div>
 
           {/* Umidade Relativa */}
           <div className="telemetry-sub-metric-block">
             <div className="metric-header-line">
               <span className="metric-headline-label">Umidade Relativa</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0284c7" strokeWidth="2.5">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0284c7" strokeWidth="2.5">
                 <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
               </svg>
             </div>
             <div className="humidity-hero-row">
-              <span className="humidity-huge-num">92%</span>
+              <span className="humidity-huge-num">{currentLotData.humidity}</span>
             </div>
-            <span className="humidity-benefit-text">Evita desidratação do engaço</span>
+            <span className="humidity-benefit-text">{currentLotData.humiditySub}</span>
           </div>
 
           {/* Histórico Térmico (Últimas 12h) */}
           <div className="telemetry-sub-metric-block border-top-divider">
             <div className="metric-header-line">
               <span className="metric-headline-label">Histórico Térmico (Últimas 12h)</span>
-              <span className="margem-segura-tag">Margem segura: 0.5°C – 2.0°C</span>
+              <span className="margem-segura-tag">{currentLotData.safeMargin}</span>
             </div>
 
-            {/* Sparkline Canvas Chart with 04:00, 08:00, 12:00, Agora */}
-            <ReeferThermalHistoryChart />
+            {/* Sparkline Vector Area Chart with 04:00, 08:00, 12:00, Agora */}
+            <ReeferThermalHistoryChart sparklineData={currentLotData.sparklineData} />
           </div>
         </div>
       </section>
@@ -438,177 +551,201 @@ export default function LogisticaFriaPage() {
             </thead>
             <tbody>
               {/* Row 1: Lote #04 */}
-              <tr>
-                <td>
-                  <div className="table-lote-col">
-                    <div className="lote-title-dot">
-                      <span className="dot-mini-green" />
-                      <strong>Lote #04 - Uva Vitória</strong>
+              {(filterFrota === 'todos' || filterFrota === 'transito') && (
+                <tr style={{ background: selectedLotTab === 'lote04' ? 'rgba(16, 185, 129, 0.04)' : undefined }}>
+                  <td>
+                    <div className="table-lote-col">
+                      <div className="lote-title-dot">
+                        <span className="dot-mini-green" />
+                        <strong>Lote #04 - Uva Vitória</strong>
+                      </div>
+                      <span className="table-sub-detail">22 toneladas • Paletes Termoselados</span>
                     </div>
-                    <span className="table-sub-detail">22 toneladas • Paletes Termoselados</span>
-                  </div>
-                </td>
-                <td>
-                  <div className="table-driver-col">
-                    <strong>Scania R450 (ABC-4F20)</strong>
-                    <span className="table-sub-detail">Carlos M. • CNH 032831</span>
-                  </div>
-                </td>
-                <td>
-                  <div className="table-route-col">
-                    <strong>Petrolina → Pecém (CE)</strong>
-                    <span className="table-sub-detail">Via BR-116 Norte</span>
-                  </div>
-                </td>
-                <td style={{ minWidth: '150px' }}>
-                  <div className="table-prog-col">
-                    <div className="table-prog-bar">
-                      <div className="table-prog-fill green" style={{ width: '62%' }} />
+                  </td>
+                  <td>
+                    <div className="table-driver-col">
+                      <strong>Scania R450 (ABC-4F20)</strong>
+                      <span className="table-sub-detail">Carlos M. • CNH 032831</span>
                     </div>
-                    <div className="table-prog-labels">
-                      <strong>62%</strong>
-                      <span>490/790 km</span>
+                  </td>
+                  <td>
+                    <div className="table-route-col">
+                      <strong>Petrolina → Pecém (CE)</strong>
+                      <span className="table-sub-detail">Via BR-116 Norte</span>
                     </div>
-                  </div>
-                </td>
-                <td>
-                  <div className="table-temp-compare-col">
-                    <strong className="green-text" style={{ fontSize: '0.92rem' }}>+1.3°C</strong>
-                    <span className="table-alvo-chip">Alvo: 0.5°-2.0°C</span>
-                    <span className="table-desvio-sub green-text">Ideal (Desvio nulo)</span>
-                  </div>
-                </td>
-                <td>
-                  <div className="table-eta-col">
-                    <strong>Hoje às 22:45</strong>
-                    <span className="table-sub-detail">No horário previsto</span>
-                  </div>
-                </td>
-                <td>
-                  <span className="badge-pill badge-green">Baixo Risco</span>
-                </td>
-                <td>
-                  <button type="button" className="btn-table-details">
-                    Detalhes Telemetria
-                  </button>
-                </td>
-              </tr>
+                  </td>
+                  <td style={{ minWidth: '150px' }}>
+                    <div className="table-prog-col">
+                      <div className="table-prog-bar">
+                        <div className="table-prog-fill green" style={{ width: '62%' }} />
+                      </div>
+                      <div className="table-prog-labels">
+                        <strong>62%</strong>
+                        <span>490/790 km</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="table-temp-compare-col">
+                      <strong className="green-text" style={{ fontSize: '0.92rem' }}>+1.3°C</strong>
+                      <span className="table-alvo-chip">Alvo: 0.5°-2.0°C</span>
+                      <span className="table-desvio-sub green-text">Ideal (Desvio nulo)</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="table-eta-col">
+                      <strong>Hoje às 22:45</strong>
+                      <span className="table-sub-detail">No horário previsto</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span className="badge-pill badge-green">Baixo Risco</span>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn-table-details"
+                      onClick={() => {
+                        setSelectedLotTab('lote04');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                    >
+                      Detalhes Telemetria
+                    </button>
+                  </td>
+                </tr>
+              )}
 
               {/* Row 2: Lote #08 */}
-              <tr>
-                <td>
-                  <div className="table-lote-col">
-                    <div className="lote-title-dot">
-                      <span className="dot-mini-teal" />
-                      <strong>Lote #08 - Manga Palmer</strong>
+              {(filterFrota === 'todos' || filterFrota === 'transito') && (
+                <tr style={{ background: selectedLotTab === 'lote08' ? 'rgba(16, 185, 129, 0.04)' : undefined }}>
+                  <td>
+                    <div className="table-lote-col">
+                      <div className="lote-title-dot">
+                        <span className="dot-mini-teal" />
+                        <strong>Lote #08 - Manga Palmer</strong>
+                      </div>
+                      <span className="table-sub-detail">18 toneladas • Maturação Nível 2</span>
                     </div>
-                    <span className="table-sub-detail">18 toneladas • Maturação Nível 2</span>
-                  </div>
-                </td>
-                <td>
-                  <div className="table-driver-col">
-                    <strong>Volvo FH 540 (KJH-8821)</strong>
-                    <span className="table-sub-detail">Marcos S. • CNH 449210</span>
-                  </div>
-                </td>
-                <td>
-                  <div className="table-route-col">
-                    <strong>Petrolina → Suape (PE)</strong>
-                    <span className="table-sub-detail">Via BR-232 Leste</span>
-                  </div>
-                </td>
-                <td style={{ minWidth: '150px' }}>
-                  <div className="table-prog-col">
-                    <div className="table-prog-bar">
-                      <div className="table-prog-fill green" style={{ width: '28%' }} />
+                  </td>
+                  <td>
+                    <div className="table-driver-col">
+                      <strong>Volvo FH 540 (KJH-8821)</strong>
+                      <span className="table-sub-detail">Marcos S. • CNH 449210</span>
                     </div>
-                    <div className="table-prog-labels">
-                      <strong>28%</strong>
-                      <span>210/720 km</span>
+                  </td>
+                  <td>
+                    <div className="table-route-col">
+                      <strong>Petrolina → Suape (PE)</strong>
+                      <span className="table-sub-detail">Via BR-232 Leste</span>
                     </div>
-                  </div>
-                </td>
-                <td>
-                  <div className="table-temp-compare-col">
-                    <strong className="green-text" style={{ fontSize: '0.92rem' }}>+11.2°C</strong>
-                    <span className="table-alvo-chip">Alvo: 10.0°-12.0°C</span>
-                    <span className="table-desvio-sub green-text">Ideal (Desvio nulo)</span>
-                  </div>
-                </td>
-                <td>
-                  <div className="table-eta-col">
-                    <strong>Amanhã às 05:30</strong>
-                    <span className="table-sub-detail">No horário previsto</span>
-                  </div>
-                </td>
-                <td>
-                  <span className="badge-pill badge-green">Baixo Risco</span>
-                </td>
-                <td>
-                  <button type="button" className="btn-table-details">
-                    Detalhes Telemetria
-                  </button>
-                </td>
-              </tr>
+                  </td>
+                  <td style={{ minWidth: '150px' }}>
+                    <div className="table-prog-col">
+                      <div className="table-prog-bar">
+                        <div className="table-prog-fill green" style={{ width: '28%' }} />
+                      </div>
+                      <div className="table-prog-labels">
+                        <strong>28%</strong>
+                        <span>210/720 km</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="table-temp-compare-col">
+                      <strong className="green-text" style={{ fontSize: '0.92rem' }}>+11.2°C</strong>
+                      <span className="table-alvo-chip">Alvo: 10.0°-12.0°C</span>
+                      <span className="table-desvio-sub green-text">Ideal (Desvio nulo)</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="table-eta-col">
+                      <strong>Amanhã às 05:30</strong>
+                      <span className="table-sub-detail">No horário previsto</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span className="badge-pill badge-green">Baixo Risco</span>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn-table-details"
+                      onClick={() => {
+                        setSelectedLotTab('lote08');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                    >
+                      Detalhes Telemetria
+                    </button>
+                  </td>
+                </tr>
+              )}
 
               {/* Row 3: Lote #02 */}
-              <tr>
-                <td>
-                  <div className="table-lote-col">
-                    <div className="lote-title-dot">
-                      <span className="dot-mini-amber" />
-                      <strong>Lote #02 - Uva Crimson</strong>
+              {(filterFrota === 'todos' || filterFrota === 'atencao') && (
+                <tr>
+                  <td>
+                    <div className="table-lote-col">
+                      <div className="lote-title-dot">
+                        <span className="dot-mini-amber" />
+                        <strong>Lote #02 - Uva Crimson</strong>
+                      </div>
+                      <span className="table-sub-detail">20 toneladas • Embalagem Clamshell</span>
                     </div>
-                    <span className="table-sub-detail">20 toneladas • Embalagem Clamshell</span>
-                  </div>
-                </td>
-                <td>
-                  <div className="table-driver-col">
-                    <strong>Mercedes Actros (PQR-3310)</strong>
-                    <span className="table-sub-detail">João P. • CNH 189204</span>
-                  </div>
-                </td>
-                <td>
-                  <div className="table-route-col">
-                    <strong>Petrolina → Salvador (BA)</strong>
-                    <span className="table-sub-detail">Via BR-407 / BR-324</span>
-                  </div>
-                </td>
-                <td style={{ minWidth: '150px' }}>
-                  <div className="table-prog-col">
-                    <div className="table-prog-bar">
-                      <div className="table-prog-fill amber" style={{ width: '96%' }} />
+                  </td>
+                  <td>
+                    <div className="table-driver-col">
+                      <strong>Mercedes Actros (PQR-3310)</strong>
+                      <span className="table-sub-detail">João P. • CNH 189204</span>
                     </div>
-                    <div className="table-prog-labels">
-                      <strong>96%</strong>
-                      <span>485/510 km</span>
+                  </td>
+                  <td>
+                    <div className="table-route-col">
+                      <strong>Petrolina → Salvador (BA)</strong>
+                      <span className="table-sub-detail">Via BR-407 / BR-324</span>
                     </div>
-                  </div>
-                </td>
-                <td>
-                  <div className="table-temp-compare-col">
-                    <strong className="amber-text" style={{ fontSize: '0.92rem' }}>+1.8°C</strong>
-                    <span className="table-alvo-chip" style={{ background: '#fef3c7', color: '#92400e' }}>Alvo: 0.5°-2.0°C</span>
-                    <span className="table-desvio-sub amber-text">Atenção Leve (+0.3°C subindo)</span>
-                  </div>
-                </td>
-                <td>
-                  <div className="table-eta-col">
-                    <strong>Hoje às 17:15</strong>
-                    <span className="table-sub-detail">Chegada Iminente</span>
-                  </div>
-                </td>
-                <td>
-                  <span className="badge-pill badge-amber dot-inside">
-                    <span className="dot-mini-amber" /> Atenção
-                  </span>
-                </td>
-                <td>
-                  <button type="button" className="btn-table-action-orange">
-                    Ver Alerta
-                  </button>
-                </td>
-              </tr>
+                  </td>
+                  <td style={{ minWidth: '150px' }}>
+                    <div className="table-prog-col">
+                      <div className="table-prog-bar">
+                        <div className="table-prog-fill amber" style={{ width: '96%' }} />
+                      </div>
+                      <div className="table-prog-labels">
+                        <strong>96%</strong>
+                        <span>485/510 km</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="table-temp-compare-col">
+                      <strong className="amber-text" style={{ fontSize: '0.92rem' }}>+1.8°C</strong>
+                      <span className="table-alvo-chip" style={{ background: '#fef3c7', color: '#92400e' }}>Alvo: 0.5°-2.0°C</span>
+                      <span className="table-desvio-sub amber-text">Atenção Leve (+0.3°C subindo)</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="table-eta-col">
+                      <strong>Hoje às 17:15</strong>
+                      <span className="table-sub-detail">Chegada Iminente</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span className="badge-pill badge-amber dot-inside">
+                      <span className="dot-mini-amber" /> Atenção
+                    </span>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn-table-action-orange"
+                      onClick={() => navigate('/alertas')}
+                    >
+                      Ver Alerta
+                    </button>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
