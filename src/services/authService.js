@@ -5,6 +5,7 @@
 
 import { httpClient, HttpError } from './httpClient';
 import { ROLES } from '../context/AuthContext';
+import { cadastrarUsuario } from './usuarioService';
 
 export const authService = {
   /**
@@ -105,38 +106,11 @@ export const authService = {
   },
 
   /**
-   * Realiza cadastro de novo usuário
+   * Realiza cadastro de novo usuário na API real (POST /usuarios).
+   * Sem simulação: se a API falhar, o erro aparece para o usuário.
    */
   async register(userData) {
-    try {
-      const response = await httpClient.post('/auth/register', userData);
-      if (response?.token) {
-        localStorage.setItem('token', response.token);
-      }
-      return response;
-    } catch (error) {
-      if (error instanceof HttpError && !error.isNetworkError && error.status > 0) {
-        throw error;
-      }
-
-      // Simulação para protótipo acadêmico
-      await new Promise((resolve) => setTimeout(resolve, 850));
-
-      const mockUser = {
-        id: 'usr_' + Date.now(),
-        name: userData.name || 'Novo Usuário',
-        email: userData.email,
-        role: userData.role || ROLES.PRODUTOR,
-      };
-
-      const mockToken = 'mock-jwt-token-' + btoa(userData.email) + '.' + Date.now();
-      localStorage.setItem('token', mockToken);
-
-      return {
-        user: mockUser,
-        token: mockToken,
-      };
-    }
+    return cadastrarUsuario(userData);
   },
 
   /**

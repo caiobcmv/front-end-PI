@@ -23,19 +23,16 @@ export default function CadastroPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleRoleChange = (roleKey, defaultEmail) => {
+  const handleRoleChange = (roleKey) => {
     setSelectedRole(roleKey);
-    if (!email) {
-      setEmail(defaultEmail || '');
-    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    const finalName = name.trim() || 'Eduardo Lima';
-    const finalEmail = email.trim() || 'gestao@frutas.agro.br';
+    const finalName = name.trim();
+    const finalEmail = email.trim().toLowerCase();
 
     if (!finalName || !finalEmail || !password || !confirmPassword) {
       setError('Por favor, preencha todos os campos para continuar.');
@@ -45,8 +42,12 @@ export default function CadastroPage() {
       setError('Informe um e-mail válido.');
       return;
     }
-    if (password.length < 6) {
-      setError('A senha deve ter no mínimo 6 caracteres.');
+    if (password.length < 8) {
+      setError('A senha deve ter no mínimo 8 caracteres.');
+      return;
+    }
+    if (password.length > 72) {
+      setError('A senha deve ter no máximo 72 caracteres.');
       return;
     }
     if (password !== confirmPassword) {

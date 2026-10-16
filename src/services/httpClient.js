@@ -47,6 +47,7 @@ export class HttpError extends Error {
       if (this.data.message) return this.data.message;
       if (this.data.erro) return this.data.erro;
       if (this.data.error) return this.data.error;
+      if (typeof this.data.detail === 'string') return this.data.detail;
     }
 
     switch (this.status) {

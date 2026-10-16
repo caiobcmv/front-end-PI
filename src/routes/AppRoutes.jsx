@@ -10,6 +10,7 @@ import LogisticaFriaPage from '../pages/LogisticaFriaPage';
 import HistoricoPage from '../pages/HistoricoPage';
 import AlertasPage from '../pages/AlertasPage';
 import ConfiguracaoPage from '../pages/ConfiguracaoPage';
+import SensoresPage from '../pages/SensoresPage';
 
 export default function AppRoutes() {
   return (
@@ -81,6 +82,17 @@ export default function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <ConfiguracaoPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+            <Route
+        path="/sensores"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <SensoresPage />
             </Layout>
           </ProtectedRoute>
         }

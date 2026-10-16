@@ -1,13 +1,44 @@
 import React, { useState, useEffect, useRef } from 'react';
 import TopHeader from '../components/TopHeader';
+import { getResumoDashboard } from '../services/dashboardService';
+import { getSeriesSensores } from '../services/sensorService';
+
+/* ─── Resume uma série em poucos pontos (média por faixa de tempo), só da última semana ─── */
+const SETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000;
+
+function resumirSerie(series = [], nPontos = 8) {
+  const corte = Date.now() - SETE_DIAS_MS;
+  const validos = series
+    .map((p) => ({ t: new Date(p.timestamp).getTime(), v: p.value }))
+    .filter((p) => Number.isFinite(p.t) && typeof p.v === 'number' && p.t >= corte)
+    .sort((a, b) => a.t - b.t);
+
+  if (validos.length < 2) return null;
+
+  const tamanho = validos.length / nPontos;
+  const points = [];
+  for (let i = 0; i < nPontos; i++) {
+    const fatia = validos.slice(Math.floor(i * tamanho), Math.max(Math.floor((i + 1) * tamanho), Math.floor(i * tamanho) + 1));
+    points.push(fatia.reduce((acc, x) => acc + x.v, 0) / fatia.length);
+  }
+
+  const fmtData = (t) =>
+    new Date(t).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', timeZone: 'America/Recife' }).replace('.', '');
+  const primeiro = validos[0].t;
+  const ultimo = validos[validos.length - 1].t;
+  const dates = [0, 1, 2, 3].map((i) => fmtData(primeiro + ((ultimo - primeiro) * i) / 3));
+
+  return { points, dates, atual: validos[validos.length - 1].v };
+}
 
 /* ─── Telemetry Sparkline with Y-axis grid, smooth cubic bezier curve, gradient fill & vertex dots ─── */
 function TelemetrySensorCard({
   title = 'Umidade do ar',
-  value = '62%',
-  status = 'Ideal',
-  points = [25, 32, 28, 35, 45, 78, 52, 62],
-  dates = ['01 Jun', '03 Jun', '05 Jun', '07 Jun'],
+  value = '--',
+  status = null,
+  points = [],
+  dates = [],
+  unit = '%',
   color = '#27AE60',
 }) {
   const width = 240;
@@ -15,26 +46,39 @@ function TelemetrySensorCard({
   const padTop = 8;
   const padBottom = 10;
   const graphH = height - padTop - padBottom;
+  const hasData = points.length >= 2;
   const numPoints = points.length;
 
-  const coords = points.map((val, idx) => ({
-    x: (idx / (numPoints - 1)) * (width - 16) + 8,
-    y: padTop + graphH - (val / 100) * graphH,
-  }));
+  // Escala do eixo Y calculada a partir dos próprios dados
+  const dMin = hasData ? Math.min(...points) : 0;
+  const dMax = hasData ? Math.max(...points) : 100;
+  const folga = dMax - dMin < 1 ? 1 : (dMax - dMin) * 0.1;
+  const yMin = Math.floor(dMin - folga);
+  const yMax = Math.ceil(dMax + folga);
+  const yMid = Math.round((yMin + yMax) / 2);
+
+  const coords = hasData
+    ? points.map((val, idx) => ({
+        x: (idx / (numPoints - 1)) * (width - 16) + 8,
+        y: padTop + graphH - ((val - yMin) / (yMax - yMin)) * graphH,
+      }))
+    : [];
 
   // Create smooth bezier curve path string
-  let curvePath = `M ${coords[0].x} ${coords[0].y}`;
-  for (let i = 0; i < coords.length - 1; i++) {
-    const p0 = coords[i];
-    const p1 = coords[i + 1];
-    const cpx1 = p0.x + (p1.x - p0.x) / 2;
-    const cpy1 = p0.y;
-    const cpx2 = p0.x + (p1.x - p0.x) / 2;
-    const cpy2 = p1.y;
-    curvePath += ` C ${cpx1} ${cpy1}, ${cpx2} ${cpy2}, ${p1.x} ${p1.y}`;
+  let curvePath = '';
+  let fillPath = '';
+  if (hasData) {
+    curvePath = `M ${coords[0].x} ${coords[0].y}`;
+    for (let i = 0; i < coords.length - 1; i++) {
+      const p0 = coords[i];
+      const p1 = coords[i + 1];
+      const cpx = p0.x + (p1.x - p0.x) / 2;
+      curvePath += ` C ${cpx} ${p0.y}, ${cpx} ${p1.y}, ${p1.x} ${p1.y}`;
+    }
+    fillPath = `${curvePath} L ${coords[coords.length - 1].x} ${height} L ${coords[0].x} ${height} Z`;
   }
 
-  const fillPath = `${curvePath} L ${coords[coords.length - 1].x} ${height} L ${coords[0].x} ${height} Z`;
+  const gradId = `grad-${title.replace(/\s+/g, '')}`;
 
   return (
     <div className="telemetry-bottom-card">
@@ -49,41 +93,47 @@ function TelemetrySensorCard({
         </div>
         <div className="telemetry-val-badge">
           <span className="telemetry-value-text">{value}</span>
-          <span className="badge-pill badge-green">{status}</span>
+          {status && <span className="badge-pill badge-green">{status}</span>}
         </div>
       </div>
 
       <div className="telemetry-chart-container">
         <div className="telemetry-y-axis">
-          <span>100%</span>
-          <span>50%</span>
-          <span>0%</span>
+          <span>{hasData ? `${yMax}${unit}` : ''}</span>
+          <span>{hasData ? `${yMid}${unit}` : ''}</span>
+          <span>{hasData ? `${yMin}${unit}` : ''}</span>
         </div>
         <div className="telemetry-canvas-wrap">
-          <svg className="telemetry-svg" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
-            <defs>
-              <linearGradient id={`grad-${title.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#2ECC71" stopOpacity="0.32" />
-                <stop offset="100%" stopColor="#2ECC71" stopOpacity="0.0" />
-              </linearGradient>
-            </defs>
+          {hasData ? (
+            <svg className="telemetry-svg" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+              <defs>
+                <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#2ECC71" stopOpacity="0.32" />
+                  <stop offset="100%" stopColor="#2ECC71" stopOpacity="0.0" />
+                </linearGradient>
+              </defs>
 
-            {/* 3 Horizontal Dashed Guide Lines */}
-            <line x1="8" y1={padTop + graphH * 0.05} x2={width - 8} y2={padTop + graphH * 0.05} stroke="#EEF2EE" strokeWidth="0.8" strokeDasharray="3 3" />
-            <line x1="8" y1={padTop + graphH * 0.5} x2={width - 8} y2={padTop + graphH * 0.5} stroke="#EEF2EE" strokeWidth="0.8" strokeDasharray="3 3" />
-            <line x1="8" y1={padTop + graphH * 0.95} x2={width - 8} y2={padTop + graphH * 0.95} stroke="#EEF2EE" strokeWidth="0.8" strokeDasharray="3 3" />
+              {/* 3 Horizontal Dashed Guide Lines */}
+              <line x1="8" y1={padTop + graphH * 0.05} x2={width - 8} y2={padTop + graphH * 0.05} stroke="#EEF2EE" strokeWidth="0.8" strokeDasharray="3 3" />
+              <line x1="8" y1={padTop + graphH * 0.5} x2={width - 8} y2={padTop + graphH * 0.5} stroke="#EEF2EE" strokeWidth="0.8" strokeDasharray="3 3" />
+              <line x1="8" y1={padTop + graphH * 0.95} x2={width - 8} y2={padTop + graphH * 0.95} stroke="#EEF2EE" strokeWidth="0.8" strokeDasharray="3 3" />
 
-            {/* Area Fill */}
-            <path d={fillPath} fill={`url(#grad-${title.replace(/\s+/g, '')})`} />
+              {/* Area Fill */}
+              <path d={fillPath} fill={`url(#${gradId})`} />
 
-            {/* Curve Stroke */}
-            <path d={curvePath} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              {/* Curve Stroke */}
+              <path d={curvePath} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 
-            {/* Vertex Dots */}
-            {coords.map((pt, idx) => (
-              <circle key={idx} cx={pt.x} cy={pt.y} r="2.8" fill={color} stroke="#ffffff" strokeWidth="1.2" />
-            ))}
-          </svg>
+              {/* Vertex Dots */}
+              {coords.map((pt, idx) => (
+                <circle key={idx} cx={pt.x} cy={pt.y} r="2.8" fill={color} stroke="#ffffff" strokeWidth="1.2" />
+              ))}
+            </svg>
+          ) : (
+            <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: '1.5rem 0 0' }}>
+              Sem leituras nos últimos 7 dias
+            </p>
+          )}
         </div>
       </div>
 
@@ -97,14 +147,14 @@ function TelemetrySensorCard({
 }
 
 /* ─── Semi-circle Gauge for Resumo da Produção ─── */
-function SemicircleSpeedometer({ value = 90 }) {
+function SemicircleSpeedometer({ value = null }) {
   const size = 180;
   const strokeWidth = 16;
   const radius = (size - strokeWidth * 2) / 2;
   const cx = size / 2;
   const cy = size / 2 + 10;
   const circumference = Math.PI * radius;
-  const offset = circumference - (value / 100) * circumference;
+  const offset = circumference - ((value ?? 0) / 100) * circumference;
 
   return (
     <div className="gauge-speedometer-wrap">
@@ -140,15 +190,61 @@ function SemicircleSpeedometer({ value = 90 }) {
         />
       </svg>
       <div className="gauge-center-content">
-        <span className="gauge-number">{value}%</span>
+        <span className="gauge-number">{value === null ? '--' : `${value}%`}</span>
       </div>
       <p className="gauge-subtext">% de leituras dentro da faixa nas últimas 24h</p>
     </div>
   );
 }
 
+const NIVEL_ALERTA = {
+  baixo: { texto: 'Atenção leve', classe: 'badge-amber' },
+  médio: { texto: 'Atenção', classe: 'badge-amber' },
+  alto: { texto: 'Crítico', classe: 'badge-red' },
+};
+
+const CONDICAO = {
+  boa: { texto: 'Boa', classe: 'badge-green' },
+  atencao: { texto: 'Atenção', classe: 'badge-amber' },
+  critica: { texto: 'Crítica', classe: 'badge-red' },
+};
+
 export default function DashboardPage() {
   const [isResumido, setIsResumido] = useState(false);
+  const [resumo, setResumo] = useState(null);
+  const [seriesSensores, setSeriesSensores] = useState(null);
+
+  useEffect(() => {
+    let ativo = true;
+    getResumoDashboard()
+      .then((r) => ativo && setResumo(r))
+      .catch(() => {});
+    getSeriesSensores()
+      .then((d) => ativo && setSeriesSensores(d))
+      .catch(() => {});
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  const cond = resumo?.condicao_geral;
+  const cc = resumo?.resumo_condicoes;
+  const lotes = resumo?.lotes_monitorados;
+  const alertas = resumo?.alertas;
+
+  const pctFaixa = typeof cc?.pct_na_faixa === 'number' ? Math.round(cc.pct_na_faixa) : null;
+  const condBadge = CONDICAO[cond?.nivel] ?? null;
+  const nivelAlerta = NIVEL_ALERTA[alertas?.maior_nivel] ?? null;
+  const pctSaudaveis = cond?.lotes_avaliados
+    ? Math.round((100 * cond.lotes_saudaveis) / cond.lotes_avaliados)
+    : null;
+  const dataHoje = new Date().toLocaleDateString('pt-BR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'America/Recife',
+  });
+  const num = (v, sufixo = '') => (typeof v === 'number' ? `${v.toLocaleString('pt-BR')}${sufixo}` : '--');
 
   return (
     <div className="dashboard-container">
@@ -159,7 +255,7 @@ export default function DashboardPage() {
         showResumidoToggle={true}
         isResumido={isResumido}
         onToggleResumido={setIsResumido}
-        dateText="22 de setembro de 2026"
+        dateText={dataHoje}
       />
 
       {/* ── Top Row: 4 KPI Cards ── */}
@@ -168,10 +264,10 @@ export default function DashboardPage() {
         <div className="dash-kpi-card">
           <div className="dash-kpi-header">
             <span className="kpi-label-text">CONDIÇÃO GERAL</span>
-            <span className="badge-pill badge-green">Excelente</span>
+            {condBadge && <span className={`badge-pill ${condBadge.classe}`}>{condBadge.texto}</span>}
           </div>
           <div className="dash-kpi-body">
-            <span className="kpi-hero-number">96%</span>
+            <span className="kpi-hero-number">{num(pctFaixa, '%')}</span>
             <div className="kpi-icon-ring-wrap">
               <svg width="42" height="42" viewBox="0 0 44 44" fill="none">
                 <circle cx="22" cy="22" r="19" stroke="#10b981" strokeWidth="2.5" />
@@ -188,7 +284,9 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="dash-kpi-footer">
-            <span className="kpi-footer-sub">Parâmetros 100% ideais</span>
+            <span className="kpi-footer-sub">
+              {pctFaixa === null ? 'Sem leituras na faixa nas últimas 24h' : 'das leituras dentro da faixa ideal (24h)'}
+            </span>
           </div>
         </div>
 
@@ -199,7 +297,7 @@ export default function DashboardPage() {
           </div>
           <div className="dash-kpi-body">
             <div className="kpi-hero-number-with-sub">
-              <span className="kpi-hero-number">6</span>
+              <span className="kpi-hero-number">{num(lotes?.total)}</span>
               <span className="kpi-sub-unit">lotes ativos</span>
             </div>
             <div className="kpi-donut-icon-wrap">
@@ -228,8 +326,8 @@ export default function DashboardPage() {
           </div>
           <div className="dash-kpi-footer">
             <div className="kpi-legend-dots">
-              <span className="legend-item"><span className="dot-green" /> 3 Colheita</span>
-              <span className="legend-item"><span className="dot-blue" /> 2 Reefer</span>
+              <span className="legend-item"><span className="dot-green" /> {num(lotes?.com_sensor_ativo)} com sensor ativo</span>
+              <span className="legend-item"><span className="dot-blue" /> {typeof lotes?.total === 'number' ? lotes.total - lotes.com_sensor_ativo : '--'} sem sensor</span>
             </div>
           </div>
         </div>
@@ -264,10 +362,10 @@ export default function DashboardPage() {
         <div className="dash-kpi-card">
           <div className="dash-kpi-header">
             <span className="kpi-label-text">ALERTAS ATIVOS</span>
-            <span className="badge-pill badge-amber">Atenção Leve</span>
+            {nivelAlerta && <span className={`badge-pill ${nivelAlerta.classe}`}>{nivelAlerta.texto}</span>}
           </div>
           <div className="dash-kpi-body">
-            <span className="kpi-hero-number">2</span>
+            <span className="kpi-hero-number">{num(alertas?.abertos)}</span>
             <div className="kpi-icon-box-peach">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -276,7 +374,9 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="dash-kpi-footer">
-            <span className="kpi-footer-sub">Necessário atenção</span>
+            <span className="kpi-footer-sub">
+              {alertas?.abertos === 0 ? 'Nenhum alerta em aberto' : 'Alertas em aberto'}
+            </span>
           </div>
         </div>
       </section>
@@ -288,7 +388,7 @@ export default function DashboardPage() {
           {/* Card: Resumo da produção */}
           <div className="dash-white-card">
             <h2 className="card-headline-clean">Resumo da produção</h2>
-            <SemicircleSpeedometer value={90} />
+            <SemicircleSpeedometer value={pctFaixa} />
 
             <div className="production-metrics-list">
               <div className="prod-metric-row">
@@ -296,21 +396,21 @@ export default function DashboardPage() {
                   <span className="prod-indicator-ring ring-green" />
                   <span className="prod-metric-label">Saúde da plantação</span>
                 </div>
-                <span className="prod-metric-val">85%</span>
+                <span className="prod-metric-val">{num(pctSaudaveis, '%')}</span>
               </div>
               <div className="prod-metric-row">
                 <div className="prod-metric-left">
                   <span className="prod-indicator-ring ring-blue" />
                   <span className="prod-metric-label">Umidade</span>
                 </div>
-                <span className="prod-metric-val">67%</span>
+                <span className="prod-metric-val">{num(cc?.umidade_ar_media, '%')}</span>
               </div>
               <div className="prod-metric-row">
                 <div className="prod-metric-left">
                   <span className="prod-indicator-icon">🌡️</span>
                   <span className="prod-metric-label">Temperatura</span>
                 </div>
-                <span className="prod-metric-val">27°C</span>
+                <span className="prod-metric-val">{num(cc?.temperatura_ar_media, '°C')}</span>
               </div>
             </div>
           </div>
@@ -591,30 +691,26 @@ export default function DashboardPage() {
 
       {/* ── Bottom Row: 4 Telemetry Sensor Cards ── */}
       <section className="dash-telemetry-grid">
-        <TelemetrySensorCard
-          title="Umidade do ar"
-          value="62%"
-          status="Ideal"
-          points={[25, 30, 28, 25, 23, 76, 45, 62]}
-        />
-        <TelemetrySensorCard
-          title="Umidade do solo"
-          value="58%"
-          status="Ideal"
-          points={[20, 24, 26, 23, 21, 68, 40, 58]}
-        />
-        <TelemetrySensorCard
-          title="Temperatura do solo"
-          value="48%"
-          status="Ideal"
-          points={[18, 22, 25, 22, 20, 60, 35, 48]}
-        />
-        <TelemetrySensorCard
-          title="Temperatura do ar"
-          value="48%"
-          status="Ideal"
-          points={[18, 21, 24, 21, 19, 62, 36, 48]}
-        />
+        {[
+          { chave: 'umidadeAr', titulo: 'Umidade do ar', unit: '%' },
+          { chave: 'umidadeSolo', titulo: 'Umidade do solo', unit: '%' },
+          { chave: 'temperaturaSolo', titulo: 'Temperatura do solo', unit: '°C' },
+          { chave: 'temperaturaAr', titulo: 'Temperatura do ar', unit: '°C' },
+        ].map(({ chave, titulo, unit }) => {
+          const dado = seriesSensores?.[chave];
+          const r = resumirSerie(dado?.series);
+          return (
+            <TelemetrySensorCard
+              key={chave}
+              title={titulo}
+              unit={unit}
+              value={r ? `${r.atual.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}${unit}` : '--'}
+              status={r ? (dado.source === 'sensor' ? 'Sensor' : 'Simulado') : null}
+              points={r?.points ?? []}
+              dates={r?.dates ?? []}
+            />
+          );
+        })}
       </section>
     </div>
   );
