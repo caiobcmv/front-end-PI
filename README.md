@@ -93,6 +93,66 @@ npm run dev
 
 O projeto estará disponível em `http://localhost:5173`.
 
+Para ver dados reais (sensores, dashboard, alertas e cadastro), é preciso subir também o banco e a API. Veja a seção [Integração com a API](#integração-com-a-api).
+
+---
+
+## Integração com a API
+
+O front consome a API do back-end ([iot-backend-](https://github.com/rafaellins7/iot-backend-)), que usa um banco PostgreSQL modelado no repositório [iot_db](https://github.com/LorenaLira05/iot_db). A ordem para rodar tudo localmente é: banco, API, front.
+
+### 1. Banco de dados (PostgreSQL)
+
+Instale o PostgreSQL, crie o banco e rode os scripts do `iot_db` **nesta ordem**:
+
+```bash
+psql -U postgres -c "CREATE DATABASE iot_db;"
+cd iot_db
+for f in schema restricoes seed triggers views; do
+  psql -U postgres -d iot_db -v ON_ERROR_STOP=1 -f $f.sql || break
+done
+```
+
+### 2. API (back-end)
+
+Use **Python 3.12**. Versões muito novas (3.15, por exemplo) ainda não têm pacotes prontos e a instalação das dependências falha.
+
+```bash
+cd iot-backend-
+python -m venv venv
+source venv/Scripts/activate   # Windows (Git Bash). No Linux/macOS: source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env           # preencha DB_HOST, DB_PORT, DB_NAME, DB_USER e DB_PASSWORD
+python -m uvicorn src.api.app:app --reload
+```
+
+A documentação interativa da API fica em `http://127.0.0.1:8000/docs`. O `.env` do back guarda a senha do banco e **nunca deve ser enviado ao GitHub**.
+
+Para popular o sensor real com leituras do ThingSpeak, defina `THINGSPEAK_CHANNEL_ID=3500765` e `SENSOR_ID=1` no `.env` do back e rode, com o ambiente virtual ativo:
+
+```bash
+python -c "from scripts.backfill_historico import main; main(2000)"
+```
+
+### 3. Front-end
+
+```bash
+cp .env.example .env     # define VITE_API_URL=http://127.0.0.1:8000
+npm install
+npm run dev
+```
+
+A porta do front (`5173` ou `5174`) já está liberada no CORS do back. Se o Vite usar outra, adicione-a em `CORS_ORIGINS` no `.env` do back.
+
+### O que já usa dados reais
+
+| Tela | Endpoints |
+|---|---|
+| Sensores (`/sensores`, acessível pelo endereço, ainda sem item no menu) | `GET /sensores`, `GET /sensores/{id}/leituras`, `GET /leituras` |
+| Dashboard (indicadores, medidor e gráficos de telemetria) | `GET /dashboard/resumo`, `GET /sensores/{id}/leituras` |
+| Alertas | `GET /alertas`, `PATCH /alertas/{id}/status` |
+| Cadastro | `GET /perfis`, `POST /usuarios` |
+
 ---
 
 ## Comandos Disponíveis
@@ -108,7 +168,8 @@ npm run lint      # Executa o linter (oxlint)
 
 ## Autenticação
 
-Por se tratar de um protótipo acadêmico sem backend, qualquer e-mail e senha preenchidos permitem o acesso. O perfil selecionado na tela de login determina quais rotas estarão disponíveis para o usuário.
+- **Cadastro:** grava usuários reais no banco (`POST /usuarios`). A senha é armazenada com bcrypt e deve ter de 8 a 72 caracteres.
+- **Login:** ainda é simulado. Qualquer e-mail e senha preenchidos permitem o acesso, porque o back ainda não tem `POST /auth/login` nem emissão de token. O acesso simulado entra como Gestora.
 
 O estado de autenticação é mantido via `localStorage` para persistência entre sessões.
 
