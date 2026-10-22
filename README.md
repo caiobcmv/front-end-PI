@@ -193,6 +193,8 @@ O estado de autenticação é mantido via `localStorage` para persistência entr
 | RF12 | Configurações do sistema (Admin) |
 | FE07 | Animação de carregamento para login |
 | FE-D02 | Cliente HTTP e tratamento de erros base |
+| FE-D08 | Aumento da fonte e melhoria do contraste visual |
+| FE-D10 | Toggle de visão Resumida e Detalhada no Dashboard |
 
 ---
 

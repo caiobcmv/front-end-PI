@@ -36,17 +36,25 @@ export default function TopHeader({
       </div>
 
       <div className="dash-top-actions">
-        {/* Optional Resumido Switch */}
+        {/* Resumido / Detalhado Toggle (FE-D10) */}
         {showResumidoToggle && (
-          <label className="resumido-toggle-label" title="Alternar visão resumida">
+          <label
+            htmlFor="resumido-toggle-input"
+            className={`resumido-toggle-label ${isResumido ? 'active' : ''}`}
+            title={isResumido ? 'Visão Resumida ativa (clique para visão Detalhada)' : 'Visão Detalhada ativa (clique para visão Resumida)'}
+            aria-label="Alternar entre visão resumida e detalhada"
+          >
             <input
+              id="resumido-toggle-input"
               type="checkbox"
               className="resumido-checkbox"
               checked={isResumido}
               onChange={(e) => onToggleResumido && onToggleResumido(e.target.checked)}
             />
             <span className="resumido-slider" />
-            <span className="resumido-text">Resumido</span>
+            <span className={`resumido-text ${isResumido ? 'resumido-text-active' : ''}`}>
+              Resumido
+            </span>
           </label>
         )}
 
