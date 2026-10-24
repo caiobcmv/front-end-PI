@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopHeader from '../components/TopHeader';
+import { getViagens } from '../services/logisticaService';
 
 /* ─── Telemetry Sparkline Chart for Reefer (with exact smooth SVG curve, safe margins & vertex dots) ─── */
 function ReeferThermalHistoryChart({ sparklineData = [], safeMin = '0.5°C', safeMax = '2.0°C' }) {
@@ -136,23 +137,39 @@ export default function LogisticaFriaPage() {
   const navigate = useNavigate();
   const [selectedLotTab, setSelectedLotTab] = useState('lote04');
   const [filterFrota, setFilterFrota] = useState('todos');
+  const [viagens, setViagens] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+    getViagens()
+      .then((data) => {
+        if (mounted && Array.isArray(data) && data.length > 0) {
+          setViagens(data);
+        }
+      })
+      .catch((err) => {
+        console.warn('API /viagens indisponível, usando dados simulados:', err);
+      });
+    return () => { mounted = false; };
+  }, []);
 
   // Lot Details Configuration (Matches screenshot for Lote #04 and supports Lote #08)
   const isLot04 = selectedLotTab === 'lote04';
+  const viagemReal = viagens.length > 0 ? (isLot04 ? viagens[0] : viagens[1] || viagens[0]) : null;
 
   const currentLotData = isLot04
     ? {
-        lotTabTitle: 'Lote #04 - Uva Vitória (Petrolina → Pecém)',
+        lotTabTitle: viagemReal ? `Lote #${viagemReal.lote?.id_lote || '04'} (${viagemReal.origem || 'Petrolina'} → ${viagemReal.destino?.nome || 'Pecém'})` : 'Lote #04 - Uva Vitória (Petrolina → Pecém)',
         estimatedPosition: 'Posição estimada às 15:15',
         highway: 'BR-116 NORTE',
         routeTitle: 'Rota estimada',
         routeSub: 'Origem, checkpoints e posição estimada',
-        progressPct: 62,
-        progressText: 'Progresso do Percurso: 62% concluído',
-        progressDistance: '490 km de 790 km percorridos (Restam 300 km)',
-        saida: 'Saída: Petrolina (06:00)',
-        eta: 'Previsão Chegada no Porto (ETA): Hoje às 22:45',
-        destino: 'Pecém / CE',
+        progressPct: viagemReal?.progresso_pct != null ? Math.round(viagemReal.progresso_pct) : 62,
+        progressText: `Progresso do Percurso: ${viagemReal?.progresso_pct != null ? Math.round(viagemReal.progresso_pct) : 62}% concluído`,
+        progressDistance: viagemReal?.tempo_restante_h != null ? `Restam aprox. ${viagemReal.tempo_restante_h}h de viagem` : '490 km de 790 km percorridos (Restam 300 km)',
+        saida: viagemReal?.saida ? `Saída: ${viagemReal.origem || 'Petrolina'} (${new Date(viagemReal.saida).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})` : 'Saída: Petrolina (06:00)',
+        eta: viagemReal?.eta ? `Previsão Chegada no Porto (ETA): ${new Date(viagemReal.eta).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'Previsão Chegada no Porto (ETA): Hoje às 22:45',
+        destino: viagemReal?.destino?.nome ? `${viagemReal.destino.nome} / ${viagemReal.destino.uf || ''}` : 'Pecém / CE',
         reeferTitle: 'Baú Frigorífico #04',
         conservationStatus: 'Perfeita Conservação',
         temp: '+1.3°C',

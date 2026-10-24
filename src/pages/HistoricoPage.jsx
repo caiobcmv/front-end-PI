@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import TopHeader from '../components/TopHeader';
+import { criarRelatorio, getRelatorioCsvUrl } from '../services/relatorioService';
 
 export default function HistoricoPage() {
   const [selectedSafra, setSelectedSafra] = useState('2025/2026');
@@ -260,7 +261,30 @@ export default function HistoricoPage() {
             <h2 className="card-headline-clean">Desempenho por Talhão</h2>
             <p className="card-muted-desc">Discriminação detalhada de colheita e consumo por lote monitorado</p>
           </div>
-          <span className="talhoes-count-sub">Exibindo 4 de 12 talhões</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span className="talhoes-count-sub">Exibindo 4 de 12 talhões</span>
+            <button
+              type="button"
+              className="btn-export-badge"
+              style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', cursor: 'pointer', background: '#0284c7', color: '#fff', border: 'none', fontWeight: '600' }}
+              onClick={async () => {
+                try {
+                  const res = await criarRelatorio({
+                    tipo: 'leituras_diarias',
+                    descricao: 'Relatório de Produção e Telemetria Histórica',
+                    inicio: '2026-09-01',
+                    fim: '2026-10-23',
+                  });
+                  const url = await getRelatorioCsvUrl(res.relatorio.id_relatorio);
+                  window.open(url, '_blank');
+                } catch (err) {
+                  alert('Não foi possível conectar à API de relatórios (/relatorios). O backend FastAPI pode estar offline.');
+                }
+              }}
+            >
+              📥 Baixar Relatório CSV
+            </button>
+          </div>
         </div>
 
         <div className="table-responsive-wrapper">

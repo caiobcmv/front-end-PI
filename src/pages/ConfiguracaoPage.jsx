@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TopHeader from '../components/TopHeader';
+import { getConfigParametros, criarConfigParametro } from '../services/configService';
+import { getFrutas } from '../services/loteService';
 
 export default function ConfiguracaoPage() {
   // Form states matching Image 5
@@ -26,6 +28,55 @@ export default function ConfiguracaoPage() {
   // Cultures chips
   const [culturas, setCulturas] = useState(['Uva de Mesa', 'Morango', 'Manga']);
   const [isSaved, setIsSaved] = useState(false);
+
+  // Parâmetros do Backend (config_parametro)
+  const [parametrosApi, setParametrosApi] = useState([]);
+  const [frutas, setFrutas] = useState([]);
+  const [showModalParam, setShowModalParam] = useState(false);
+  const [paramForm, setParamForm] = useState({
+    id_fruta: '1',
+    etapa: 'campo',
+    temp_min: '15',
+    temp_max: '32',
+    umidade_min: '40',
+    umidade_max: '85',
+  });
+
+  const carregarParametros = async () => {
+    try {
+      const [params, frutasData] = await Promise.all([
+        getConfigParametros(),
+        getFrutas().catch(() => []),
+      ]);
+      if (Array.isArray(params)) setParametrosApi(params);
+      if (Array.isArray(frutasData)) setFrutas(frutasData);
+    } catch (err) {
+      console.warn('API /config-parametros indisponível:', err);
+    }
+  };
+
+  useEffect(() => {
+    carregarParametros();
+  }, []);
+
+  const handleSalvarParametroApi = async (e) => {
+    e.preventDefault();
+    try {
+      await criarConfigParametro({
+        id_fruta: Number(paramForm.id_fruta),
+        etapa: paramForm.etapa,
+        temp_min: Number(paramForm.temp_min),
+        temp_max: Number(paramForm.temp_max),
+        umidade_min: Number(paramForm.umidade_min),
+        umidade_max: Number(paramForm.umidade_max),
+      });
+      alert('Limiares de qualidade salvos no banco com sucesso!');
+      setShowModalParam(false);
+      carregarParametros();
+    } catch (err) {
+      alert(`Erro ao salvar parâmetro: ${err.friendlyMessage || err.message}`);
+    }
+  };
 
   const removeCultura = (culturaToRemove) => {
     setCulturas(culturas.filter((c) => c !== culturaToRemove));
@@ -348,13 +399,35 @@ export default function ConfiguracaoPage() {
               <button
                 type="button"
                 className="btn-nova-variedade"
-                onClick={() => alert('Modal para adicionar variedade')}
+                onClick={() => setShowModalParam(true)}
               >
-                + Nova variedade
+                + Nova faixa / variedade
               </button>
             </div>
 
             <div className="varieties-table-list">
+              {parametrosApi.length > 0 && (
+                <div style={{ marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#0d9488', textTransform: 'uppercase' }}>
+                    Faixas Ativas no Banco (config_parametro)
+                  </span>
+                  {parametrosApi.map((p) => (
+                    <div key={p.id_config} className="variety-row-item" style={{ marginTop: '0.5rem' }}>
+                      <div className="variety-name-market">
+                        <div className="variety-bullet-name">
+                          <span className="variety-dot dot-teal" style={{ background: '#0d9488' }} />
+                          <strong className="variety-title">{p.fruta || `Fruta #${p.id_fruta}`}</strong>
+                        </div>
+                        <span className="variety-market-sub">Etapa: <strong style={{ textTransform: 'capitalize' }}>{p.etapa}</strong></span>
+                      </div>
+                      <div className="variety-specs-actions">
+                        <span className="badge-pill badge-green">{p.temp_min}°C a {p.temp_max}°C</span>
+                        <span className="variety-calibre-txt">UR: {p.umidade_min}% - {p.umidade_max}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               {/* Uva Vitória */}
               <div className="variety-row-item">
                 <div className="variety-name-market">
@@ -629,6 +702,121 @@ export default function ConfiguracaoPage() {
           ℹ As alterações aplicadas a nós de campo entrarão em vigor no próximo ciclo de sincronização (em até 5 minutos).
         </p>
       </div>
+
+      {/* Modal Adicionar Limiares Técnicos (config_parametro) */}
+      {showModalParam && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+          <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '10px', width: '100%', maxWidth: '440px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '1rem', color: '#0f172a' }}>Nova Faixa Agroclimática</h3>
+            <form onSubmit={handleSalvarParametroApi}>
+              <div style={{ marginBottom: '0.75rem' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.25rem' }}>Fruta *</label>
+                <select 
+                  value={paramForm.id_fruta}
+                  onChange={(e) => setParamForm({ ...paramForm, id_fruta: e.target.value })}
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                >
+                  {frutas.length > 0 ? (
+                    frutas.map((f) => (
+                      <option key={f.id_fruta} value={f.id_fruta}>{f.nome}</option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="1">Manga Tommy</option>
+                      <option value="2">Manga Palmer</option>
+                      <option value="3">Uva Vitória</option>
+                    </>
+                  )}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: '0.75rem' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.25rem' }}>Etapa Operacional *</label>
+                <select 
+                  value={paramForm.etapa}
+                  onChange={(e) => setParamForm({ ...paramForm, etapa: e.target.value })}
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                >
+                  <option value="campo">Campo</option>
+                  <option value="armazenamento">Armazenamento / Packing</option>
+                  <option value="transporte">Transporte / Cadeia Fria</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.25rem' }}>Temp. Mín (°C)</label>
+                  <input 
+                    type="number"
+                    step="0.5"
+                    required
+                    value={paramForm.temp_min}
+                    onChange={(e) => setParamForm({ ...paramForm, temp_min: e.target.value })}
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.25rem' }}>Temp. Máx (°C)</label>
+                  <input 
+                    type="number"
+                    step="0.5"
+                    required
+                    value={paramForm.temp_max}
+                    onChange={(e) => setParamForm({ ...paramForm, temp_max: e.target.value })}
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.25rem' }}>Umidade Mín (%)</label>
+                  <input 
+                    type="number"
+                    step="1"
+                    required
+                    min="0"
+                    max="100"
+                    value={paramForm.umidade_min}
+                    onChange={(e) => setParamForm({ ...paramForm, umidade_min: e.target.value })}
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '0.25rem' }}>Umidade Máx (%)</label>
+                  <input 
+                    type="number"
+                    step="1"
+                    required
+                    min="0"
+                    max="100"
+                    value={paramForm.umidade_max}
+                    onChange={(e) => setParamForm({ ...paramForm, umidade_max: e.target.value })}
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                <button 
+                  type="button" 
+                  onClick={() => setShowModalParam(false)}
+                  style={{ padding: '0.5rem 1rem', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#f8fafc', cursor: 'pointer' }}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn-structural"
+                  style={{ borderRadius: '6px' }}
+                >
+                  Salvar Parâmetro
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
