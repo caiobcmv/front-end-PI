@@ -10,12 +10,13 @@ export default function TopHeader({
   onToggleResumido,
   dateText = '22 de setembro de 2026',
 }) {
-  const { user, logout } = useAuth();
+  const { user, login, logout } = useAuth();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
-  const userName = user?.name || 'Maria Clara';
-  const userRole = user?.role || 'Gestora';
+  const isAnalista = user?.role === 'Analista';
+  const userName = user?.name || (isAnalista ? 'Luiz Felipe' : 'Maria Clara');
+  const userRole = user?.role || (isAnalista ? 'Analista' : 'Gestora');
   const initials = userName
     .split(' ')
     .map((n) => n[0])
@@ -26,6 +27,15 @@ export default function TopHeader({
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleSwitchProfile = (targetRole) => {
+    if (targetRole === 'Analista') {
+      login('Analista', 'Luiz Felipe', 'luiz.felipe@raizagro.agr.br');
+    } else {
+      login('Gestora', 'Maria Clara', 'maria.clara@raizagro.agr.br');
+    }
+    setShowUserMenu(false);
   };
 
   return (
@@ -77,7 +87,7 @@ export default function TopHeader({
           type="button"
           className="dash-bell-btn"
           onClick={() => navigate('/alertas')}
-          title="Ver 2 alertas ativos"
+          title="Ver 3 alertas ativos"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4b5563" strokeWidth="2">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -110,8 +120,34 @@ export default function TopHeader({
             <div className="user-dropdown-menu">
               <div className="user-dropdown-header">
                 <strong>{userName}</strong>
-                <span>{user?.email || 'gestora@raizagro.agr.br'}</span>
+                <span>{user?.email || (isAnalista ? 'luiz.felipe@raizagro.agr.br' : 'gestora@raizagro.agr.br')}</span>
               </div>
+              <div className="user-dropdown-divider" />
+              
+              {/* Profile Quick Switcher */}
+              <div style={{ padding: '6px 12px', fontSize: '0.72rem', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>
+                Alternar Perfil
+              </div>
+              {isAnalista ? (
+                <button
+                  type="button"
+                  className="user-dropdown-item"
+                  style={{ color: '#065F46', fontWeight: 600 }}
+                  onClick={() => handleSwitchProfile('Gestora')}
+                >
+                  <span style={{ marginRight: 6 }}>👩‍🌾</span> Maria Clara (Gestora)
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="user-dropdown-item"
+                  style={{ color: '#065F46', fontWeight: 600 }}
+                  onClick={() => handleSwitchProfile('Analista')}
+                >
+                  <span style={{ marginRight: 6 }}>📡</span> Luiz Felipe (Analista IoT)
+                </button>
+              )}
+
               <div className="user-dropdown-divider" />
               <button
                 type="button"

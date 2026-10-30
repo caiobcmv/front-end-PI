@@ -1,1423 +1,636 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import TopHeader from '../components/TopHeader';
-import { getResumoDashboard } from '../services/dashboardService';
-import { getSeriesSensores } from '../services/sensorService';
-import '../styles/dashboard-views.css';
+import { useAuth } from '../context/AuthContext';
 
-/* ─── Resume uma série em poucos pontos (média por faixa de tempo), só da última semana ─── */
-const SETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000;
+/* ── Visão Geral para Gestora ── */
+import DashboardGestora from './DashboardGestora';
 
-function resumirSerie(series = [], nPontos = 8) {
-  const corte = Date.now() - SETE_DIAS_MS;
-  const validos = series
-    .map((p) => ({ t: new Date(p.timestamp).getTime(), v: p.value }))
-    .filter((p) => Number.isFinite(p.t) && typeof p.v === 'number' && p.t >= corte)
-    .sort((a, b) => a.t - b.t);
+/* ── Visão Geral Analista (Luiz Felipe) ── */
+function DashboardAnalista() {
+  const [viewMode, setViewMode] = useState('detalhado');
+  const [topologyFilter, setTopologyFilter] = useState('todos');
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [selectedNode, setSelectedNode] = useState(null);
 
-  if (validos.length < 2) return null;
+  // Sensores mapeados espacialmente conforme imagem aérea de satélite
+  const sensorNodes = [
+    { id: '03', label: 'SNS-SL-03', type: 'solo', status: 'ativo', top: '36%', left: '44%', vwc: '37.8%', temp: '25.8°C', talhao: 'Talhão A2 • Uva Crimson' },
+    { id: '01', label: 'SNS-SL-01', type: 'solo', status: 'ativo', top: '48%', left: '49%', vwc: '46.2%', temp: '24.5°C', talhao: 'Talhão A1 • Uva Vitória' },
+    { id: '19', label: 'SNS-SL-19', type: 'alerta', status: 'critico', top: '45%', left: '42%', vwc: '38.2%', temp: '27.4°C', talhao: 'Talhão A1 • Estresse Hídrico P1' },
+    { id: '04', label: 'SNS-AR-04', type: 'ar', status: 'ativo', top: '38%', left: '72%', vwc: '48.1%', temp: '26.1°C', talhao: 'Talhão B1 • Microclima' },
+    { id: '08', label: 'SNS-AR-08', type: 'ar', status: 'ativo', top: '45%', left: '74%', vwc: '50.4%', temp: '27.0°C', talhao: 'Talhão B2 • Estação Ar' },
+    { id: '07', label: 'SNS-AR-07', type: 'ar', status: 'ativo', top: '51%', left: '70%', vwc: '47.5%', temp: '26.8°C', talhao: 'Talhão C1 • Microclima' },
+  ];
 
-  const tamanho = validos.length / nPontos;
-  const points = [];
-  for (let i = 0; i < nPontos; i++) {
-    const fatia = validos.slice(Math.floor(i * tamanho), Math.max(Math.floor((i + 1) * tamanho), Math.floor(i * tamanho) + 1));
-    points.push(fatia.reduce((acc, x) => acc + x.v, 0) / fatia.length);
-  }
-
-  const fmtData = (t) =>
-    new Date(t).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', timeZone: 'America/Recife' }).replace('.', '');
-  const primeiro = validos[0].t;
-  const ultimo = validos[validos.length - 1].t;
-  const dates = [0, 1, 2, 3].map((i) => fmtData(primeiro + ((ultimo - primeiro) * i) / 3));
-
-  return { points, dates, atual: validos[validos.length - 1].v };
-}
-
-/* ─── Semicircle Speedometer with Mathematically Centered Text (FE-D10) ─── */
-function SemicircleSpeedometer({
-  value = 90,
-  label = null,
-  subtext = null,
-  size = 200,
-  strokeWidth = 16,
-  id = 'speedo-default',
-  gradientType = 'cool',
-}) {
-  const valNum = typeof value === 'number' && Number.isFinite(value) ? Math.min(Math.max(Math.round(value), 0), 100) : 90;
-  const radius = (size - strokeWidth * 2) / 2;
-  const cx = size / 2;
-  const cy = size / 2 - 4;
-  const circumference = Math.PI * radius;
-  const offset = circumference * (1 - valNum / 100);
-  const gradId = `grad-${id}`;
-
-  return (
-    <div className="gauge-speedometer-wrap">
-      <svg width={size} height={size * 0.58} viewBox={`0 0 ${size} ${size * 0.58}`} style={{ overflow: 'visible' }}>
-        <defs>
-          {gradientType === 'warm' ? (
-            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#ea580c" />
-              <stop offset="35%" stopColor="#f59e0b" />
-              <stop offset="70%" stopColor="#10b981" />
-              <stop offset="100%" stopColor="#059669" />
-            </linearGradient>
-          ) : (
-            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#10b981" />
-              <stop offset="60%" stopColor="#059669" />
-              <stop offset="100%" stopColor="#0284c7" />
-            </linearGradient>
-          )}
-        </defs>
-
-        {/* Background Arc */}
-        <path
-          d={`M ${cx - radius} ${cy} A ${radius} ${radius} 0 0 1 ${cx + radius} ${cy}`}
-          fill="none"
-          stroke="#f1f5f9"
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-        />
-
-        {/* Progress Arc */}
-        <path
-          d={`M ${cx - radius} ${cy} A ${radius} ${radius} 0 0 1 ${cx + radius} ${cy}`}
-          fill="none"
-          stroke={`url(#${gradId})`}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={`${circumference} ${circumference}`}
-          strokeDashoffset={offset}
-          style={{ transition: 'stroke-dashoffset 1s ease-out' }}
-        />
-
-        {/* Centered Number in SVG */}
-        <text
-          x={cx}
-          y={label ? cy - 14 : cy - 4}
-          textAnchor="middle"
-          dominantBaseline="central"
-          style={{
-            fontFamily: "'Inter', sans-serif",
-            fontSize: `${size > 185 ? 40 : 34}px`,
-            fontWeight: 800,
-            fill: '#0f172a',
-          }}
-        >
-          {valNum}%
-        </text>
-
-        {/* Optional Centered Sublabel in SVG (only for short tags like 'LEITURAS CONFORMES') */}
-        {label && (
-          <text
-            x={cx}
-            y={cy + 18}
-            textAnchor="middle"
-            dominantBaseline="central"
-            style={{
-              fontFamily: "'Inter', sans-serif",
-              fontSize: '11.5px',
-              fontWeight: 800,
-              letterSpacing: '0.07em',
-              fill: '#1e293b',
-              textTransform: 'uppercase',
-            }}
-          >
-            {label}
-          </text>
-        )}
-      </svg>
-
-      {/* External Subtext (natural text wrap, never clipped, high contrast) */}
-      {subtext && (
-        <p className="gauge-subtext-clean">
-          {subtext}
-        </p>
-      )}
-    </div>
-  );
-}
-
-
-/* ─── Condição Geral Gauge (Resumido Card 1) - Barra em cima e 96% centralizado ─── */
-function CondicaoGeralGauge({ value = 96 }) {
-  const size = 150;
-  const cx = 75;
-  const cy = 64;
-  const r = 48;
-  const strokeWidth = 10;
-  const circumference = Math.PI * r;
-  const valNum = typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : 96;
-  const offset = circumference - (valNum / 100) * circumference;
-
-  return (
-    <div className="resumido-gauge-box">
-      <svg width={size} height="95" viewBox="0 0 150 95">
-        <defs>
-          <linearGradient id="condGeralGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#10b981" />
-            <stop offset="65%" stopColor="#059669" />
-            <stop offset="100%" stopColor="#0284c7" />
-          </linearGradient>
-        </defs>
-
-        {/* Background Arc ("barra em cima") */}
-        <path
-          d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
-          fill="none"
-          stroke="#f1f5f9"
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-        />
-
-        {/* Progress Arc ("barra em cima") */}
-        <path
-          d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
-          fill="none"
-          stroke="url(#condGeralGrad)"
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          style={{ transition: 'stroke-dashoffset 1s ease-out' }}
-        />
-
-        {/* Subtle needle pip on arc rim */}
-        <circle cx={cx - 30} cy={cy - 37} r="3.5" fill="#0f172a" />
-        <line x1={cx - 30} y1={cy - 37} x2={cx - 37} y2={cy - 44} stroke="#0f172a" strokeWidth="2.5" strokeLinecap="round" />
-
-        {/* 96% Centralizado exatamente com a barra em cima */}
-        <text
-          x={cx}
-          y={cy - 14}
-          textAnchor="middle"
-          dominantBaseline="central"
-          style={{
-            fontFamily: "'Inter', sans-serif",
-            fontSize: '32px',
-            fontWeight: 800,
-            fill: '#0f172a',
-          }}
-        >
-          {valNum}%
-        </text>
-
-        {/* Badge Ótimo Centralizado */}
-        <g transform={`translate(${cx - 25}, ${cy + 3})`}>
-          <rect width="50" height="18" rx="9" fill="#dcfce7" stroke="#bbf7d0" strokeWidth="1" />
-          <text
-            x="25"
-            y="9.5"
-            textAnchor="middle"
-            dominantBaseline="central"
-            style={{
-              fontFamily: "'Inter', sans-serif",
-              fontSize: '11px',
-              fontWeight: 700,
-              fill: '#15803d',
-            }}
-          >
-            Ótimo
-          </text>
-        </g>
-
-        {/* Label ÍNDICE GERAL Centralizado */}
-        <text
-          x={cx}
-          y={cy + 29}
-          textAnchor="middle"
-          dominantBaseline="central"
-          style={{
-            fontFamily: "'Inter', sans-serif",
-            fontSize: '10px',
-            fontWeight: 700,
-            letterSpacing: '0.06em',
-            fill: '#64748b',
-            textTransform: 'uppercase',
-          }}
-        >
-          ÍNDICE GERAL
-        </text>
-      </svg>
-    </div>
-  );
-}
-
-/* ─── Donut Chart for Lotes em Operação (Resumido Card 2) ─── */
-function DonutCapacityChart({ total = 6, max = 8, colheita = 3, reefer = 2, maturacao = 1 }) {
-  const size = 105;
-  const cx = 52.5;
-  const cy = 52.5;
-  const r = 38;
-  const strokeWidth = 11;
-  const c = 2 * Math.PI * r;
-
-  const lenColheita = (colheita / total) * c;
-  const lenReefer = (reefer / total) * c;
-  const lenMaturacao = (maturacao / total) * c;
-
-  const offColheita = 0;
-  const offReefer = -lenColheita;
-  const offMaturacao = -(lenColheita + lenReefer);
-
-  return (
-    <div className="resumido-donut-box">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f1f5f9" strokeWidth={strokeWidth} />
-        {/* Colheita (green) */}
-        <circle
-          cx={cx}
-          cy={cy}
-          r={r}
-          fill="none"
-          stroke="#10b981"
-          strokeWidth={strokeWidth}
-          strokeDasharray={`${Math.max(lenColheita - 3, 1)} ${c - lenColheita + 3}`}
-          strokeDashoffset={offColheita}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${cx} ${cy})`}
-        />
-        {/* Reefer (blue) */}
-        <circle
-          cx={cx}
-          cy={cy}
-          r={r}
-          fill="none"
-          stroke="#0284c7"
-          strokeWidth={strokeWidth}
-          strokeDasharray={`${Math.max(lenReefer - 3, 1)} ${c - lenReefer + 3}`}
-          strokeDashoffset={offReefer}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${cx} ${cy})`}
-        />
-        {/* Maturação (orange) */}
-        <circle
-          cx={cx}
-          cy={cy}
-          r={r}
-          fill="none"
-          stroke="#f59e0b"
-          strokeWidth={strokeWidth}
-          strokeDasharray={`${Math.max(lenMaturacao - 3, 1)} ${c - lenMaturacao + 3}`}
-          strokeDashoffset={offMaturacao}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${cx} ${cy})`}
-        />
-        {/* Centered Text */}
-        <text x={cx} y={cy - 6} textAnchor="middle" dominantBaseline="central" className="donut-svg-hero">
-          {total}/{max}
-        </text>
-        <text x={cx} y={cy + 13} textAnchor="middle" dominantBaseline="central" className="donut-svg-sub">
-          CAPACIDADE
-        </text>
-      </svg>
-    </div>
-  );
-}
-
-/* ─── Compact Bezier Chart for Resumido Telemetria ─── */
-function ResumidoCompactCurveChart({
-  title,
-  badgeText,
-  badgeClass = 'badge-green',
-  points = [58, 60, 64, 66, 63, 62],
-  color = '#10b981',
-}) {
-  const width = 280;
-  const height = 65;
-  const padTop = 6;
-  const padBottom = 8;
-  const graphH = height - padTop - padBottom;
-  const minVal = Math.min(...points);
-  const maxVal = Math.max(...points);
-  const folga = Math.max((maxVal - minVal) * 0.15, 1);
-  const yMin = minVal - folga;
-  const yMax = maxVal + folga;
-
-  const coords = points.map((val, idx) => ({
-    x: (idx / (points.length - 1)) * (width - 16) + 8,
-    y: padTop + graphH - ((val - yMin) / (yMax - yMin)) * graphH,
-  }));
-
-  let curvePath = `M ${coords[0].x} ${coords[0].y}`;
-  for (let i = 0; i < coords.length - 1; i++) {
-    const p0 = coords[i];
-    const p1 = coords[i + 1];
-    const cpx = p0.x + (p1.x - p0.x) / 2;
-    curvePath += ` C ${cpx} ${p0.y}, ${cpx} ${p1.y}, ${p1.x} ${p1.y}`;
-  }
-  const fillPath = `${curvePath} L ${coords[coords.length - 1].x} ${height} L ${coords[0].x} ${height} Z`;
-  const gradId = `resumido-grad-${title.replace(/[^a-zA-Z0-9]/g, '')}`;
-
-  return (
-    <div className="resumido-telemetry-card">
-      <div className="resumido-telemetry-card-top">
-        <span className="resumido-telemetry-name">{title}</span>
-        <span className={`badge-pill ${badgeClass}`}>{badgeText}</span>
-      </div>
-
-      <div style={{ width: '100%', height: '65px', overflow: 'hidden' }}>
-        <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block' }}>
-          <defs>
-            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity="0.28" />
-              <stop offset="100%" stopColor={color} stopOpacity="0.0" />
-            </linearGradient>
-          </defs>
-          <path d={fillPath} fill={`url(#${gradId})`} />
-          <path d={curvePath} fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round" />
-        </svg>
-      </div>
-
-      <div className="resumido-telemetry-x-axis">
-        <span>00:00</span>
-        <span>06:00</span>
-        <span>12:00</span>
-        <span>18:00</span>
-        <span>Agora</span>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Telemetry Sensor Card (Detalhado View) ─── */
-function TelemetrySensorCard({
-  title = 'Umidade do ar',
-  value = '--',
-  status = null,
-  points = [],
-  dates = [],
-  unit = '%',
-  color = '#27AE60',
-}) {
-  const width = 240;
-  const height = 70;
-  const padTop = 8;
-  const padBottom = 10;
-  const graphH = height - padTop - padBottom;
-  const hasData = points.length >= 2;
-  const numPoints = points.length;
-
-  const dMin = hasData ? Math.min(...points) : 0;
-  const dMax = hasData ? Math.max(...points) : 100;
-  const folga = dMax - dMin < 1 ? 1 : (dMax - dMin) * 0.1;
-  const yMin = Math.floor(dMin - folga);
-  const yMax = Math.ceil(dMax + folga);
-  const yMid = Math.round((yMin + yMax) / 2);
-
-  const coords = hasData
-    ? points.map((val, idx) => ({
-        x: (idx / (numPoints - 1)) * (width - 16) + 8,
-        y: padTop + graphH - ((val - yMin) / (yMax - yMin)) * graphH,
-      }))
-    : [];
-
-  let curvePath = '';
-  let fillPath = '';
-  if (hasData) {
-    curvePath = `M ${coords[0].x} ${coords[0].y}`;
-    for (let i = 0; i < coords.length - 1; i++) {
-      const p0 = coords[i];
-      const p1 = coords[i + 1];
-      const cpx = p0.x + (p1.x - p0.x) / 2;
-      curvePath += ` C ${cpx} ${p0.y}, ${cpx} ${p1.y}, ${p1.x} ${p1.y}`;
-    }
-    fillPath = `${curvePath} L ${coords[coords.length - 1].x} ${height} L ${coords[0].x} ${height} Z`;
-  }
-
-  const gradId = `grad-${title.replace(/[^a-zA-Z0-9]/g, '')}`;
-
-  return (
-    <div className="telemetry-bottom-card">
-      <div className="telemetry-card-header">
-        <div className="telemetry-title-group">
-          <span className="telemetry-icon-badge">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#047857" strokeWidth="2.5">
-              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
-            </svg>
-          </span>
-          <span className="telemetry-title">{title}</span>
-        </div>
-        <div className="telemetry-val-badge">
-          <span className="telemetry-value-text">{value}</span>
-          {status && <span className="badge-pill badge-green">{status}</span>}
-        </div>
-      </div>
-
-      <div className="telemetry-chart-container">
-        <div className="telemetry-y-axis">
-          <span>{hasData ? `${yMax}${unit}` : ''}</span>
-          <span>{hasData ? `${yMid}${unit}` : ''}</span>
-          <span>{hasData ? `${yMin}${unit}` : ''}</span>
-        </div>
-        <div className="telemetry-canvas-wrap">
-          {hasData ? (
-            <svg className="telemetry-svg" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
-              <defs>
-                <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#2ECC71" stopOpacity="0.32" />
-                  <stop offset="100%" stopColor="#2ECC71" stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
-
-              <line x1="8" y1={padTop + graphH * 0.05} x2={width - 8} y2={padTop + graphH * 0.05} stroke="#EEF2EE" strokeWidth="0.8" strokeDasharray="3 3" />
-              <line x1="8" y1={padTop + graphH * 0.5} x2={width - 8} y2={padTop + graphH * 0.5} stroke="#EEF2EE" strokeWidth="0.8" strokeDasharray="3 3" />
-              <line x1="8" y1={padTop + graphH * 0.95} x2={width - 8} y2={padTop + graphH * 0.95} stroke="#EEF2EE" strokeWidth="0.8" strokeDasharray="3 3" />
-
-              <path d={fillPath} fill={`url(#${gradId})`} />
-              <path d={curvePath} fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-
-              {coords.map((pt, idx) => (
-                <circle key={idx} cx={pt.x} cy={pt.y} r="2.8" fill={color} stroke="#ffffff" strokeWidth="1.2" />
-              ))}
-            </svg>
-          ) : (
-            <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '1.5rem 0 0', textAlign: 'center' }}>
-              Sem leituras nos últimos 7 dias
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div className="telemetry-x-axis">
-        {dates.map((d, idx) => (
-          <span key={idx}>{d}</span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-const NIVEL_ALERTA = {
-  baixo: { texto: 'Atenção leve', classe: 'badge-amber' },
-  médio: { texto: 'Atenção', classe: 'badge-amber' },
-  alto: { texto: 'Crítico', classe: 'badge-red' },
-};
-
-const CONDICAO = {
-  boa: { texto: 'Boa', classe: 'badge-green' },
-  atencao: { texto: 'Atenção', classe: 'badge-amber' },
-  critica: { texto: 'Crítica', classe: 'badge-red' },
-};
-
-export default function DashboardPage() {
-  // FE-D10: Persistent toggle between Resumido and Detalhado view
-  const [isResumido, setIsResumido] = useState(() => {
-    const saved = localStorage.getItem('dashboard_resumido');
-    return saved !== null ? saved === 'true' : true;
+  const filteredNodes = sensorNodes.filter((node) => {
+    if (topologyFilter === 'todos') return true;
+    if (topologyFilter === 'solo') return node.type === 'solo';
+    if (topologyFilter === 'ar') return node.type === 'ar';
+    if (topologyFilter === 'alerta') return node.type === 'alerta';
+    return true;
   });
 
-  const [activeTelemetryTab, setActiveTelemetryTab] = useState('24h');
-  const [resumo, setResumo] = useState(null);
-  const [seriesSensores, setSeriesSensores] = useState(null);
-
-  const handleToggleResumido = (checked) => {
-    setIsResumido(checked);
-    localStorage.setItem('dashboard_resumido', String(checked));
-  };
-
-  useEffect(() => {
-    let ativo = true;
-    getResumoDashboard()
-      .then((r) => ativo && setResumo(r))
-      .catch(() => {});
-    getSeriesSensores()
-      .then((d) => ativo && setSeriesSensores(d))
-      .catch(() => {});
-    return () => {
-      ativo = false;
-    };
-  }, []);
-
-  // Dados com fallback fiel ao mockup
-  const cond = resumo?.condicao_geral;
-  const cc = resumo?.resumo_condicoes;
-  const lotes = resumo?.lotes_monitorados;
-  const alertas = resumo?.alertas;
-
-  const pctFaixa = typeof cc?.pct_na_faixa === 'number' ? Math.round(cc.pct_na_faixa) : 90;
-  const pctGeral = typeof cond?.pct_faixa === 'number' ? Math.round(cond.pct_faixa) : 96;
-  const totalLotes = typeof lotes?.total === 'number' ? lotes.total : 6;
-  const ativosComSensor = typeof lotes?.com_sensor_ativo === 'number' ? lotes.com_sensor_ativo : 3;
-  const alertasAbertos = typeof alertas?.abertos === 'number' ? alertas.abertos : 2;
-
-  const condBadge = cond?.nivel ? CONDICAO[cond.nivel] : { texto: 'Excelente', classe: 'badge-green' };
-  const nivelAlerta = alertas?.maior_nivel ? NIVEL_ALERTA[alertas.maior_nivel] : { texto: 'Atenção Leve', classe: 'badge-amber' };
-
-  const dataHoje = new Date().toLocaleDateString('pt-BR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'America/Recife',
-  });
-
-  // Series default fallback for Detalhado
-  const defaultDates = ['01 Jun', '03 Jun', '05 Jun', '07 Jun'];
-  const defaultPointsMap = {
-    umidadeAr: [55, 62, 59, 62],
-    umidadeSolo: [50, 54, 60, 58],
-    temperaturaSolo: [22, 23.5, 25, 24.5],
-    temperaturaAr: [24, 26, 29, 27.8],
-  };
+  const handleZoomIn = () => setZoomLevel((z) => Math.min(1.4, +(z + 0.1).toFixed(2)));
+  const handleZoomOut = () => setZoomLevel((z) => Math.max(0.9, +(z - 0.1).toFixed(2)));
 
   return (
-    <div className="dashboard-container">
-      {/* ── Top Header with Resumido / Detalhado Toggle (FE-D10) ── */}
+    <div className="dashboard-container analista-dashboard">
       <TopHeader
         title="Visão Geral do Sistema"
         subtitle="Gerencie preferências da fazenda, parâmetros de sensores, notificações e acessos."
-        showResumidoToggle={true}
-        isResumido={isResumido}
-        onToggleResumido={handleToggleResumido}
-        dateText={dataHoje}
+        showResumidoToggle={false}
+        dateText="22 de setembro de 2026"
       />
 
-      {/* ═══════════════════════════════════════════════════════════
-         ─── RESUMIDO VIEW (MATCHING IMAGE 1) ───
-         ═══════════════════════════════════════════════════════════ */}
-      <div
-        className="dash-resumido-root"
-        style={{ display: isResumido ? 'flex' : 'none' }}
-        aria-hidden={!isResumido}
-      >
-        {/* ── Resumido Top 3-Card Grid ── */}
-        <section className="dash-resumido-top-grid">
-          {/* Card 1: CONDIÇÃO GERAL */}
-          <div className="resumido-kpi-card">
-            <div className="resumido-kpi-header">
-              <span className="resumido-kpi-title">CONDIÇÃO GERAL</span>
-              <span className="badge-pill badge-green">Excelente</span>
-            </div>
-
-            <div className="resumido-kpi-body">
-              {/* Condição Geral Gauge: Barra em cima com 96% e rótulos perfeitamente centralizados */}
-              <CondicaoGeralGauge value={pctGeral} />
-
-              {/* Progress Bars Column */}
-              <div className="resumido-bars-col">
-                <div className="resumido-bar-row">
-                  <div className="resumido-bar-labels">
-                    <span className="resumido-bar-name">Água & Solo</span>
-                    <span className="resumido-bar-pct">98%</span>
-                  </div>
-                  <div className="resumido-track">
-                    <div className="resumido-fill fill-blue" style={{ width: '98%' }} />
-                  </div>
-                </div>
-
-                <div className="resumido-bar-row">
-                  <div className="resumido-bar-labels">
-                    <span className="resumido-bar-name">Saúde Foliar</span>
-                    <span className="resumido-bar-pct">96%</span>
-                  </div>
-                  <div className="resumido-track">
-                    <div className="resumido-fill fill-teal" style={{ width: '96%' }} />
-                  </div>
-                </div>
-
-                <div className="resumido-bar-row">
-                  <div className="resumido-bar-labels">
-                    <span className="resumido-bar-name">Microclima</span>
-                    <span className="resumido-bar-pct">94%</span>
-                  </div>
-                  <div className="resumido-track">
-                    <div className="resumido-fill fill-cyan" style={{ width: '94%' }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="resumido-kpi-footer">
-              <span>Parâmetros 100% ideais</span>
-              <span style={{ color: '#059669', fontWeight: 600 }}>● 24h Conforme</span>
-            </div>
+      {/* ── Gateway / Firmware Status Bar ── */}
+      <div className="gateway-status-bar">
+        <div className="gateway-status-left">
+          <span className="dot-mini-green" />
+          <strong className="gateway-status-name">GATEWAY PETROLINA-04</strong>
+          <span className="gateway-sep">•</span>
+          <span className="gateway-status-detail">US915 CONCENTRADOR ATIVO</span>
+          <span className="badge-pill badge-firmware">ESP-MESH-v4.2.1-prod</span>
+        </div>
+        <div className="gateway-status-actions">
+          <div className="view-toggle-group">
+            <button
+              type="button"
+              className={`view-toggle-btn ${viewMode === 'resumido' ? 'active' : ''}`}
+              onClick={() => setViewMode('resumido')}
+            >
+              Resumido
+            </button>
+            <button
+              type="button"
+              className={`view-toggle-btn ${viewMode === 'detalhado' ? 'active' : ''}`}
+              onClick={() => setViewMode('detalhado')}
+            >
+              Detalhado
+            </button>
           </div>
-
-          {/* Card 2: LOTES EM OPERAÇÃO */}
-          <div className="resumido-kpi-card">
-            <div className="resumido-kpi-header">
-              <span className="resumido-kpi-title">LOTES EM OPERAÇÃO</span>
-              <span className="badge-pill badge-blue">6 Ativos</span>
-            </div>
-
-            <div className="resumido-kpi-body">
-              {/* Donut Chart with Centered 6/8 CAPACIDADE */}
-              <DonutCapacityChart total={totalLotes} max={8} colheita={3} reefer={2} maturacao={1} />
-
-              {/* Legend Column */}
-              <div className="resumido-legend-col">
-                <div className="resumido-legend-row">
-                  <div className="resumido-legend-left">
-                    <span className="dot-green" /> Colheita
-                  </div>
-                  <span className="resumido-legend-count">3 lotes</span>
-                </div>
-                <div className="resumido-legend-row">
-                  <div className="resumido-legend-left">
-                    <span className="dot-blue" /> Reefer / Frio
-                  </div>
-                  <span className="resumido-legend-count">2 lotes</span>
-                </div>
-                <div className="resumido-legend-row">
-                  <div className="resumido-legend-left">
-                    <span style={{ width: '7px', height: '7px', backgroundColor: '#f59e0b', borderRadius: '50%', display: 'inline-block' }} /> Maturação
-                  </div>
-                  <span className="resumido-legend-count">1 lote</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="resumido-kpi-footer" style={{ justifyContent: 'flex-start', gap: '1.25rem' }}>
-              <span><span className="dot-green" /> 3 Colheita</span>
-              <span><span className="dot-blue" /> 2 Reefer</span>
-              <span><span style={{ width: '7px', height: '7px', backgroundColor: '#f59e0b', borderRadius: '50%', display: 'inline-block' }} /> 1 Maturação</span>
-            </div>
-          </div>
-
-          {/* Card 3: PREVISÃO DO TEMPO */}
-          <div className="resumido-kpi-card">
-            <div className="resumido-kpi-header">
-              <span className="resumido-kpi-title">PREVISÃO DO TEMPO</span>
-              <span className="badge-pill badge-yellow-loc">📍 Petrolina, PE • Hoje</span>
-            </div>
-
-            <div className="resumido-weather-body">
-              <div className="resumido-weather-left">
-                <span className="resumido-weather-sun-icon">☀️</span>
-                <div className="resumido-weather-temp-group">
-                  <span className="resumido-weather-big-temp">28°C</span>
-                  <span className="resumido-weather-condition-text">Ensolarado • Vento 12 km/h</span>
-                </div>
-              </div>
-
-              <div className="resumido-weather-periods">
-                <div className="resumido-weather-period-col">
-                  <span className="resumido-period-tag">MANHÃ</span>
-                  <span className="resumido-period-deg">22°</span>
-                </div>
-                <div className="resumido-weather-period-col">
-                  <span className="resumido-period-tag">TARDE</span>
-                  <span className="resumido-period-deg">31°</span>
-                </div>
-                <div className="resumido-weather-period-col">
-                  <span className="resumido-period-tag">NOITE</span>
-                  <span className="resumido-period-deg">24°</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="resumido-weather-bottom-stats">
-              <div className="resumido-stat-item">
-                <span className="resumido-stat-label">UMIDADE</span>
-                <span className="resumido-stat-val">62%</span>
-              </div>
-              <div className="resumido-stat-item">
-                <span className="resumido-stat-label">CHUVA</span>
-                <span className="resumido-stat-val">0 mm</span>
-              </div>
-              <div className="resumido-stat-item">
-                <span className="resumido-stat-label">UV</span>
-                <span className="resumido-stat-val" style={{ color: '#059669' }}>Mod.</span>
-              </div>
-              <div className="resumido-stat-item">
-                <span className="resumido-stat-label">Qua</span>
-                <span className="resumido-stat-val">29°</span>
-              </div>
-              <div className="resumido-stat-item">
-                <span className="resumido-stat-label">Qui</span>
-                <span className="resumido-stat-val">28°</span>
-              </div>
-              <div className="resumido-stat-item">
-                <span className="resumido-stat-label">Sex</span>
-                <span className="resumido-stat-val">27°</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ── Resumido Middle 2-Card Grid (~38% / ~62%) ── */}
-        <section className="dash-resumido-mid-grid">
-          {/* Card Left: RESUMO DAS CONDIÇÕES & CULTURAS */}
-          <div className="resumido-conditions-card">
-            <div>
-              <div className="resumido-kpi-header" style={{ marginBottom: '0.25rem' }}>
-                <span className="resumido-kpi-title">RESUMO DAS CONDIÇÕES & CULTURAS</span>
-              </div>
-
-              {/* Speedometer Gauge: 90% LEITURAS CONFORMES (Centered & Vibrant) */}
-              <div className="resumido-speedometer-box">
-                <SemicircleSpeedometer
-                  value={pctFaixa}
-                  id="resumido-conditions"
-                  label="LEITURAS CONFORMES"
-                  size={205}
-                  strokeWidth={18}
-                  gradientType="cool"
-                />
-              </div>
-
-              {/* 3 Metric Rows */}
-              <div className="resumido-metric-bars-stack">
-                <div className="resumido-bar-row">
-                  <div className="resumido-bar-labels">
-                    <span className="resumido-bar-name">
-                      <span className="dot-green" style={{ marginRight: '6px' }} />
-                      Saúde da Plantação (NDVI)
-                    </span>
-                    <span className="resumido-bar-pct">85%</span>
-                  </div>
-                  <div className="resumido-track">
-                    <div className="resumido-fill fill-teal" style={{ width: '85%' }} />
-                  </div>
-                </div>
-
-                <div className="resumido-bar-row">
-                  <div className="resumido-bar-labels">
-                    <span className="resumido-bar-name">
-                      <span className="dot-blue" style={{ marginRight: '6px' }} />
-                      Umidade Média do Dossel
-                    </span>
-                    <span className="resumido-bar-pct">67%</span>
-                  </div>
-                  <div className="resumido-track">
-                    <div className="resumido-fill fill-blue" style={{ width: '67%' }} />
-                  </div>
-                </div>
-
-                <div className="resumido-bar-row">
-                  <div className="resumido-bar-labels">
-                    <span className="resumido-bar-name">
-                      <span style={{ width: '7px', height: '7px', backgroundColor: '#f59e0b', borderRadius: '50%', display: 'inline-block', marginRight: '6px' }} />
-                      Temperatura Foliar
-                    </span>
-                    <span className="resumido-bar-pct">27°C</span>
-                  </div>
-                  <div className="resumido-track">
-                    <div className="resumido-fill fill-orange" style={{ width: '54%' }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom 2-Col Info Box */}
-            <div className="resumido-bottom-info-box">
-              <div>
-                <div className="resumido-box-col-title">CULTURAS</div>
-                <div className="resumido-crop-item">
-                  <span>Vitória:</span>
-                  <strong style={{ color: '#059669' }}>55%</strong>
-                </div>
-                <div className="resumido-crop-item">
-                  <span>Palmer:</span>
-                  <strong style={{ color: '#0284c7' }}>35%</strong>
-                </div>
-                <div className="resumido-crop-item">
-                  <span>Outras:</span>
-                  <strong>10%</strong>
-                </div>
-              </div>
-
-              <div>
-                <div className="resumido-box-col-title">STATUS ÁGUA</div>
-                <div className="resumido-water-stat-row">
-                  <span className="resumido-water-hero">63%</span>
-                  <span className="badge-pill badge-green" style={{ padding: '1px 8px' }}>Auto</span>
-                </div>
-                <span className="resumido-water-sub">4.200 Litros</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Card Right: MONITORAMENTO DA PROPRIEDADE & TALHÕES */}
-          <div className="resumido-map-card">
-            <div>
-              <div className="resumido-map-header">
-                <div className="resumido-map-title-group">
-                  <h2 className="resumido-map-title">MONITORAMENTO DA PROPRIEDADE & TALHÕES</h2>
-                  <span className="resumido-map-sub">Fazenda Vale das Uvas • Setor 04 (48 ha)</span>
-                </div>
-
-                <div className="resumido-map-controls">
-                  <span className="badge-pill badge-green">sentinel-2</span>
-                  <div className="map-zoom-controls" style={{ position: 'static' }}>
-                    <button type="button" className="zoom-btn" title="Aumentar zoom">+</button>
-                    <button type="button" className="zoom-btn" title="Diminuir zoom">-</button>
-                    <button type="button" className="zoom-btn" title="Expandir visualização">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Satellite Map with Overlays */}
-              <div className="resumido-map-viewport">
-                <img
-                  src="/farm_satellite_map.jpg"
-                  alt="Monitoramento de Talhões - Petrolina"
-                  className="resumido-map-img"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                  }}
-                />
-
-                {/* SVG Polygon outlines for parcels */}
-                <svg className="map-polygons-svg" viewBox="0 0 500 280">
-                  <polygon points="120,50 260,40 270,110 130,120" fill="rgba(16, 185, 129, 0.25)" stroke="#10b981" strokeWidth="2" />
-                  <polygon points="290,45 440,35 430,115 280,125" fill="rgba(245, 158, 11, 0.25)" stroke="#f59e0b" strokeWidth="2" />
-                  <polygon points="110,140 320,135 305,210 100,215" fill="rgba(2, 132, 199, 0.25)" stroke="#0284c7" strokeWidth="2" />
-                </svg>
-
-                {/* Tag Talhão A • Vitória */}
-                <div className="resumido-map-tag" style={{ top: '22%', left: '16%' }}>
-                  <span className="dot-green" />
-                  <span>Talhão A • Vitória</span>
-                  <span className="tag-badge-green">NDVI 0.88</span>
-                </div>
-
-                {/* Tag Talhão C • Palmer */}
-                <div className="resumido-map-tag" style={{ top: '20%', left: '56%' }}>
-                  <span style={{ width: '7px', height: '7px', backgroundColor: '#f59e0b', borderRadius: '50%', display: 'inline-block' }} />
-                  <span>Talhão C • Palmer</span>
-                  <span className="tag-badge-orange">Alerta Hídrico</span>
-                </div>
-
-                {/* Tag Gateway Central ESP32 */}
-                <div className="resumido-map-tag" style={{ top: '48%', left: '42%' }}>
-                  <span className="dot-green" />
-                  <span>Gateway Central ESP32</span>
-                </div>
-
-                {/* Tag Talhão B • Thompson */}
-                <div className="resumido-map-tag" style={{ top: '65%', left: '20%' }}>
-                  <span className="dot-blue" />
-                  <span>Talhão B • Thompson</span>
-                  <span className="tag-badge-blue">VWC 48%</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="resumido-map-footer">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <span className="legend-chip"><span className="legend-dot dot-otima" /> Ótimo</span>
-                <span className="legend-chip"><span className="legend-dot dot-boa" /> Atenção</span>
-                <span className="legend-chip"><span className="legend-dot dot-critica" /> Crítico</span>
-              </div>
-              <span>Passagem orbital há 42 min</span>
-            </div>
-          </div>
-        </section>
-
-        {/* ── Resumido Bottom Section: TELEMETRIA DE CAMPO (24H) ── */}
-        <section className="resumido-telemetry-section">
-          <div className="resumido-telemetry-header">
-            <div>
-              <h3 className="resumido-telemetry-title">TELEMETRIA DE CAMPO (24H)</h3>
-              <p className="resumido-telemetry-sub">Leituras em tempo real dos nós LoRaWAN distribuídos nos talhões</p>
-            </div>
-
-            <div className="resumido-time-pills">
-              <button
-                type="button"
-                className={`time-pill-btn ${activeTelemetryTab === '24h' ? 'active' : ''}`}
-                onClick={() => setActiveTelemetryTab('24h')}
-              >
-                24h
-              </button>
-              <button
-                type="button"
-                className={`time-pill-btn ${activeTelemetryTab === '7d' ? 'active' : ''}`}
-                onClick={() => setActiveTelemetryTab('7d')}
-              >
-                7 Dias
-              </button>
-              <button
-                type="button"
-                className={`time-pill-btn ${activeTelemetryTab === '30d' ? 'active' : ''}`}
-                onClick={() => setActiveTelemetryTab('30d')}
-              >
-                30 Dias
-              </button>
-            </div>
-          </div>
-
-          <div className="resumido-telemetry-grid">
-            <ResumidoCompactCurveChart
-              title="Umidade do Ar"
-              badgeText="62% Ideal"
-              badgeClass="badge-green"
-              points={[58, 62, 60, 65, 63, 62]}
-              color="#10b981"
-            />
-            <ResumidoCompactCurveChart
-              title="Umidade do Solo"
-              badgeText="58% Ideal"
-              badgeClass="badge-green"
-              points={[52, 54, 59, 61, 57, 58]}
-              color="#0d9488"
-            />
-            <ResumidoCompactCurveChart
-              title="Temperatura do Solo"
-              badgeText="24.5°C Segura"
-              badgeClass="badge-blue"
-              points={[22.5, 23.2, 25.1, 25.4, 24.8, 24.5]}
-              color="#0284c7"
-            />
-            <ResumidoCompactCurveChart
-              title="Temperatura do Ar"
-              badgeText="27.8°C Ideal"
-              badgeClass="badge-green"
-              points={[23.5, 25.2, 28.5, 29.1, 28.2, 27.8]}
-              color="#10b981"
-            />
-          </div>
-        </section>
+          <button type="button" className="btn-sync-thingspeak" title="Sincronizar telemetria via ThingSpeak REST API">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+            </svg>
+            Sincronizar Ingestão ThingSpeak
+          </button>
+          <button type="button" className="btn-export-telemetria" title="Exportar dados brutos dos sensores em formato CSV">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Exportar Telemetria
+          </button>
+        </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════
-         ─── DETALHADO VIEW (MATCHING IMAGE 2) ───
-         ═══════════════════════════════════════════════════════════ */}
-      <div
-        className="dash-detalhado-root"
-        style={{ display: !isResumido ? 'flex' : 'none' }}
-        aria-hidden={isResumido}
-      >
-        {/* ── Top Row: 4 KPI Cards ── */}
-        <section className="dash-kpi-grid">
-          {/* Card 1: CONDIÇÃO GERAL */}
-          <div className="dash-kpi-card">
-            <div className="dash-kpi-header">
-              <span className="kpi-label-text">CONDIÇÃO GERAL</span>
-              {condBadge && <span className={`badge-pill ${condBadge.classe}`}>{condBadge.texto}</span>}
+      {/* ── 4 KPI Cards (Analista) ── */}
+      <section className="dash-kpi-grid analista-kpi-grid">
+        {/* KPI 1: Saúde da Rede Mesh */}
+        <div className="dash-kpi-card">
+          <div className="dash-kpi-header">
+            <span className="kpi-label-text">SAÚDE DA REDE MESH</span>
+            <span className="badge-pill badge-green">EXCELENTE</span>
+          </div>
+          <div className="kpi-hero-number-with-sub" style={{ marginTop: 8 }}>
+            <span className="kpi-hero-number">96%</span>
+          </div>
+          <div style={{ fontSize: '0.82rem', color: '#475569', marginTop: 4 }}>
+            24 de 25 nós operacionais
+          </div>
+          <div className="kpi-exact-footer">
+            <span className="kpi-footer-meta">Latência média: <strong>124 ms</strong></span>
+            <span className="badge-pill badge-green" style={{ fontSize: '0.68rem' }}>Mesh OK</span>
+          </div>
+        </div>
+
+        {/* KPI 2: Sensores & Sondas */}
+        <div className="dash-kpi-card">
+          <div className="dash-kpi-header">
+            <span className="kpi-label-text">SENSORES & SONDAS</span>
+            <div className="kpi-icon-pill icon-blue-pill">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" strokeWidth="2">
+                <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
+                <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5" />
+                <circle cx="12" cy="12" r="2" />
+                <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5" />
+                <path d="M19.1 4.9C23 8.8 23 15.1 19.1 19" />
+              </svg>
             </div>
-            <div className="dash-kpi-body">
-              <span className="kpi-hero-number">{pctGeral}%</span>
-              <div className="kpi-icon-ring-wrap">
-                <svg width="42" height="42" viewBox="0 0 44 44" fill="none">
-                  <circle cx="22" cy="22" r="19" stroke="#10b981" strokeWidth="2.5" />
-                  <path
-                    d="M22 13C18 16 16 20 16 24C16 27.3 18.7 30 22 30C25.3 30 28 27.3 28 24C28 20 26 16 22 13Z"
-                    fill="none"
-                    stroke="#10b981"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path d="M22 17V26" stroke="#10b981" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
+          </div>
+          <div className="kpi-hero-number-with-sub" style={{ marginTop: 8 }}>
+            <span className="kpi-hero-number">24</span>
+            <span className="kpi-sub-unit">unidades ativas</span>
+          </div>
+          <div className="analista-sensor-breakdown">
+            <span className="sensor-breakdown-item">
+              <strong>16</strong> Solo (FDR)
+            </span>
+            <span className="sensor-breakdown-item">
+              <strong>8</strong> Microclima (Ar)
+            </span>
+          </div>
+        </div>
+
+        {/* KPI 3: Média Climática & Solo */}
+        <div className="dash-kpi-card">
+          <div className="dash-kpi-header">
+            <span className="kpi-label-text">MÉDIA CLIMÁTICA & SOLO</span>
+            <span className="badge-pill badge-green">FAIXA ADEQUADA</span>
+          </div>
+          <div className="kpi-hero-number-with-sub" style={{ marginTop: 8 }}>
+            <span className="kpi-hero-number">27,4°C</span>
+          </div>
+          <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: 4 }}>
+            Temp. Ar (Teto 32°C)
+          </div>
+          <div className="kpi-exact-footer">
+            <span className="kpi-footer-meta" style={{ color: '#0284C7', fontWeight: 700 }}>46,2% Umidade Solo VWC</span>
+            <span style={{ fontSize: '0.74rem', color: '#475569' }}>Equilíbrio hídrico e térmico sustentado</span>
+          </div>
+        </div>
+
+        {/* KPI 4: Alertas do Sistema */}
+        <div className="dash-kpi-card">
+          <div className="dash-kpi-header">
+            <span className="kpi-label-text">ALERTAS DO SISTEMA</span>
+            <span className="badge-pill badge-amber-exact">ATENÇÃO LEVE</span>
+          </div>
+          <div className="kpi-hero-number-with-sub" style={{ marginTop: 8 }}>
+            <span className="kpi-hero-number">2</span>
+          </div>
+          <div style={{ fontSize: '0.82rem', color: '#475569', marginTop: 4 }}>
+            Necessitam revisão em campo
+          </div>
+          <div className="kpi-exact-footer">
+            <span style={{ fontSize: '0.78rem', color: '#64748B' }}>1 Nível Alto + 1 Nível Médio</span>
+            <a href="/alertas" className="kpi-link-btn">Ver central de alertas →</a>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Topologia de Sensores no Campo (Satellite Aerial Map) ── */}
+      <div className="dash-white-card sensor-topology-card">
+        <div className="sensor-topology-header">
+          <div className="sensor-topology-title-row">
+            <div className="config-icon-sq icon-green">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
+                <polygon points="3 11 22 2 13 21 11 13 3 11" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="card-headline-clean" style={{ fontSize: '1rem' }}>Topologia de Sensores no Campo</h2>
+              <p className="card-muted-desc">Visualização da área de cobertura georreferenciada e dispersão dos nós</p>
+            </div>
+          </div>
+          <div className="topology-filter-tabs">
+            <button
+              type="button"
+              className={`tab-btn-incident ${topologyFilter === 'todos' ? 'active' : ''}`}
+              onClick={() => setTopologyFilter('todos')}
+            >
+              Todos (24)
+            </button>
+            <button
+              type="button"
+              className={`tab-btn-incident ${topologyFilter === 'solo' ? 'active' : ''}`}
+              onClick={() => setTopologyFilter('solo')}
+            >
+              Solo / FDR (16)
+            </button>
+            <button
+              type="button"
+              className={`tab-btn-incident ${topologyFilter === 'ar' ? 'active' : ''}`}
+              onClick={() => setTopologyFilter('ar')}
+            >
+              Microclima / Ar (8)
+            </button>
+            <button
+              type="button"
+              className={`tab-btn-incident ${topologyFilter === 'alerta' ? 'active' : ''}`}
+              onClick={() => setTopologyFilter('alerta')}
+              style={{ color: '#DC2626' }}
+            >
+              <span className="dot-mini-red" />
+              Em Alerta (2)
+            </button>
+          </div>
+        </div>
+
+        {/* Mapa com Imagem de Satélite Real da Fazenda */}
+        <div className="sensor-map-container">
+          <div
+            className="sensor-map-bg"
+            style={{
+              transform: `scale(${zoomLevel})`,
+              transformOrigin: 'center center',
+              transition: 'transform 0.3s ease',
+            }}
+          >
+            {/* SVG Mesh Vector Lines (Dashed links connecting Gateway to Nodes) */}
+            <svg
+              viewBox="0 0 1000 440"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none',
+                zIndex: 3,
+              }}
+            >
+              {/* Lines from Gateway (580, 189) to nodes */}
+              <line x1="580" y1="189" x2="440" y2="158" stroke="#34D399" strokeWidth="1.75" strokeDasharray="4 4" strokeOpacity="0.75" />
+              <line x1="580" y1="189" x2="490" y2="211" stroke="#34D399" strokeWidth="1.75" strokeDasharray="4 4" strokeOpacity="0.75" />
+              <line x1="580" y1="189" x2="420" y2="198" stroke="#EF4444" strokeWidth="2" strokeDasharray="4 4" strokeOpacity="0.85" />
+              <line x1="580" y1="189" x2="720" y2="167" stroke="#38BDF8" strokeWidth="1.75" strokeDasharray="4 4" strokeOpacity="0.75" />
+              <line x1="580" y1="189" x2="740" y2="198" stroke="#38BDF8" strokeWidth="1.75" strokeDasharray="4 4" strokeOpacity="0.75" />
+              <line x1="580" y1="189" x2="700" y2="224" stroke="#38BDF8" strokeWidth="1.75" strokeDasharray="4 4" strokeOpacity="0.75" />
+            </svg>
+
+            {/* Central LoRa Gateway Pin */}
+            <div
+              className="sensor-gateway-beacon"
+              style={{ top: '43%', left: '58%' }}
+              title="Gateway Petrolina-04 • Concentrador US915 Ativo"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
+                <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5" />
+                <circle cx="12" cy="12" r="2" fill="#34D399" />
+                <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5" />
+                <path d="M19.1 4.9C23 8.8 23 15.1 19.1 19" />
+              </svg>
+            </div>
+
+            {/* Sensor Nodes on Agricultural Parcels */}
+            <div className="sensor-map-overlay" style={{ zIndex: 4 }}>
+              <div className="sensor-map-grid">
+                {filteredNodes.map((s) => {
+                  const isRed = s.type === 'alerta';
+                  const isBlue = s.type === 'ar';
+                  const isSelected = selectedNode?.id === s.id;
+
+                  return (
+                    <button
+                      type="button"
+                      key={s.id}
+                      className={`sensor-node-dot ${
+                        isRed ? 'sensor-node-red' : isBlue ? 'sensor-node-blue' : 'sensor-node-green'
+                      }`}
+                      style={{
+                        top: s.top,
+                        left: s.left,
+                        outline: isSelected ? '3px solid #FBBF24' : 'none',
+                        outlineOffset: '2px',
+                      }}
+                      onClick={() => setSelectedNode(s)}
+                      title={`${s.label} (${s.talhao}) • ${s.vwc} • ${s.temp}`}
+                    >
+                      {s.id}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            <div className="dash-kpi-footer">
-              <span className="kpi-footer-sub">Parâmetros 100% ideais</span>
+
+            {/* Compass (N) on Top-Right */}
+            <div className="map-compass">
+              <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+                <circle cx="15" cy="15" r="14" stroke="#CBD5E1" strokeWidth="1.5" fill="rgba(255,255,255,0.92)" />
+                <polygon points="15,4 18,15 15,13 12,15" fill="#0F172A" />
+                <polygon points="15,26 18,15 15,17 12,15" fill="#94A3B8" />
+                <text x="15" y="8" textAnchor="middle" fontSize="6.5" fontWeight="800" fill="#0F172A">N</text>
+              </svg>
+            </div>
+
+            {/* Zoom Controls (+ / -) on Bottom-Right */}
+            <div className="map-zoom-controls">
+              <button
+                type="button"
+                className="map-zoom-btn"
+                onClick={handleZoomIn}
+                title="Aumentar Zoom do Mapa"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                className="map-zoom-btn"
+                onClick={handleZoomOut}
+                title="Diminuir Zoom do Mapa"
+              >
+                −
+              </button>
             </div>
           </div>
 
-          {/* Card 2: LOTES EM OPERAÇÃO */}
-          <div className="dash-kpi-card">
-            <div className="dash-kpi-header">
-              <span className="kpi-label-text">LOTES EM OPERAÇÃO</span>
-            </div>
-            <div className="dash-kpi-body">
-              <div className="kpi-hero-number-with-sub">
-                <span className="kpi-hero-number">{totalLotes}</span>
-                <span className="kpi-sub-unit">lotes ativos</span>
-              </div>
-              <div className="kpi-donut-icon-wrap">
-                <svg width="44" height="44" viewBox="0 0 44 44">
-                  <circle cx="22" cy="22" r="16" fill="none" stroke="#e2e8f0" strokeWidth="4" />
-                  <circle
-                    cx="22" cy="22" r="16"
-                    fill="none" stroke="#059669" strokeWidth="4"
-                    strokeDasharray="100.5" strokeDashoffset="45"
-                    strokeLinecap="round"
-                    transform="rotate(-90 22 22)"
-                  />
-                  <circle
-                    cx="22" cy="22" r="16"
-                    fill="none" stroke="#0ea5e9" strokeWidth="4"
-                    strokeDasharray="100.5" strokeDashoffset="75"
-                    strokeLinecap="round"
-                    transform="rotate(60 22 22)"
-                  />
-                  <rect x="18" y="18" width="8" height="8" rx="1.5" fill="#0f766e" />
-                </svg>
-              </div>
-            </div>
-            <div className="dash-kpi-footer">
-              <div className="kpi-legend-dots">
-                <span className="legend-item"><span className="dot-green" /> {ativosComSensor} Colheita</span>
-                <span className="legend-item"><span className="dot-blue" /> 2 Reefer</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: CADEIA FRIA (REEFER) */}
-          <div className="dash-kpi-card">
-            <div className="dash-kpi-header">
-              <span className="kpi-label-text">CADEIA FRIA (REEFER)</span>
-              <span className="badge-pill badge-green">Faixa Ideal</span>
-            </div>
-            <div className="dash-kpi-body">
-              <span className="kpi-hero-number">+1.2°C</span>
-              <div className="kpi-spark-box">
-                <svg width="52" height="24" viewBox="0 0 52 24" fill="none">
-                  <path
-                    d="M2 14C10 8 16 18 24 12C32 6 40 16 50 10"
-                    stroke="#10b981"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                <span className="spark-sub-text">Estável</span>
-              </div>
-            </div>
-            <div className="dash-kpi-footer">
-              <span className="kpi-footer-sub">Teto seguro: 2.0°C</span>
-            </div>
-          </div>
-
-          {/* Card 4: ALERTAS ATIVOS */}
-          <div className="dash-kpi-card">
-            <div className="dash-kpi-header">
-              <span className="kpi-label-text">ALERTAS ATIVOS</span>
-              {nivelAlerta && <span className={`badge-pill ${nivelAlerta.classe}`}>{nivelAlerta.texto}</span>}
-            </div>
-            <div className="dash-kpi-body">
-              <span className="kpi-hero-number">{alertasAbertos}</span>
-              <div className="kpi-icon-box-peach">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                </svg>
-              </div>
-            </div>
-            <div className="dash-kpi-footer">
-              <span className="kpi-footer-sub">Necessário atenção</span>
-            </div>
-          </div>
-        </section>
-
-        {/* ── Middle Section: 3 Columns Grid ── */}
-        <section className="dash-middle-layout">
-          {/* ── Column 1 (Left): Resumo da Produção & Status da Água ── */}
-          <div className="dash-mid-col">
-            {/* Card: Resumo da produção with Centered Gauge */}
-            <div className="dash-white-card">
-              <h2 className="card-headline-clean">Resumo da produção</h2>
-              <SemicircleSpeedometer
-                value={pctFaixa}
-                id="detalhado-prod"
-                subtext="% de leituras dentro da faixa nas últimas 24h"
-                size={190}
-                strokeWidth={16}
-                gradientType="warm"
-              />
-
-              <div className="production-metrics-list">
-                <div className="prod-metric-row">
-                  <div className="prod-metric-left">
-                    <span className="prod-indicator-ring ring-green" />
-                    <span className="prod-metric-label">Saúde da plantação</span>
-                  </div>
-                  <span className="prod-metric-val">85%</span>
-                </div>
-                <div className="prod-metric-row">
-                  <div className="prod-metric-left">
-                    <span className="prod-indicator-ring ring-blue" />
-                    <span className="prod-metric-label">Umidade</span>
-                  </div>
-                  <span className="prod-metric-val">67%</span>
-                </div>
-                <div className="prod-metric-row">
-                  <div className="prod-metric-left">
-                    <span className="prod-indicator-icon">🌡️</span>
-                    <span className="prod-metric-label">Temperatura</span>
-                  </div>
-                  <span className="prod-metric-val">27°C</span>
-                </div>
-              </div>
+          {/* Bottom Area Badge (Left) */}
+          <div className="sensor-map-footer-info">
+            <div className="map-area-badge">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
+                <circle cx="12" cy="10" r="3" />
+                <path d="M12 2a8 8 0 0 0-8 8c0 5.5 8 14 8 14s8-8.5 8-14a8 8 0 0 0-8-8z" />
+              </svg>
+              <span>Área de cultivo</span>
+              <strong>Vale do São Francisco – PE (45.0 ha)</strong>
             </div>
 
-            {/* Card: Status da água */}
-            <div className="dash-white-card">
-              <div className="card-title-with-dot">
-                <span className="dot-mini-blue" />
-                <h2 className="card-headline-clean">Status da água</h2>
-              </div>
-
-              <div className="water-top-panel">
-                <div className="water-drop-icon-sq">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#38bdf8">
-                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
-                  </svg>
-                </div>
-                <div className="water-level-col">
-                  <div className="water-level-labels">
-                    <span className="water-label-sm">Umidade média do solo</span>
-                    <span className="water-pct-bold">63%</span>
-                  </div>
-                  <div className="water-track">
-                    <div className="water-fill-bar" style={{ width: '63%' }} />
-                  </div>
-                </div>
-              </div>
-
-              <div className="water-bottom-boxes">
-                <div className="water-sub-box">
-                  <span className="water-box-label">Consumo de hoje</span>
-                  <span className="water-box-val">4,2 L</span>
-                </div>
-                <div className="water-sub-box">
-                  <span className="water-box-label">Irrigação automática</span>
-                  <span className="badge-pill badge-green-filled">ATIVA</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Column 2 (Center): Operação, Mercado, Ocorrências & Rota Fria ── */}
-          <div className="dash-mid-col">
-            {/* Card: Janela Ideal de Colheita & Exp. */}
-            <div className="dash-white-card">
-              <div className="card-header-clean">
-                <h3 className="card-subheadline">Janela Ideal de Colheita & Exp.</h3>
-                <span className="badge-pill badge-green">88% Eficácia</span>
-              </div>
-              <h4 className="card-bold-title">Período recomendado: 28/09 a 04/10</h4>
-              <p className="card-muted-desc">
-                Probabilidade de 88% de máxima qualidade brix e menor perda pós-colheita para despacho marítimo.
-              </p>
-            </div>
-
-            {/* Card: Preço e Demanda de Mercado */}
-            <div className="dash-white-card">
-              <div className="card-header-clean">
-                <h3 className="card-subheadline">Preço e Demanda de Mercado</h3>
-                <span className="meta-source-text">Ceagesp / Export</span>
-              </div>
-              <div className="market-price-list">
-                <div className="market-price-item">
-                  <span className="market-crop-name">Uva Vitória</span>
-                  <div className="market-val-group">
-                    <span className="market-val-bold">R$ 14,20/kg</span>
-                    <span className="market-gain-text">↑ +8%</span>
-                  </div>
-                </div>
-                <div className="market-price-item">
-                  <span className="market-crop-name">Manga Palmer</span>
-                  <div className="market-val-group">
-                    <span className="market-val-bold">R$ 6,80/kg</span>
-                    <span className="market-stable-text">estável</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Card: Saídas da Faixa na Semana */}
-            <div className="dash-white-card">
-              <div className="card-header-clean">
-                <h3 className="card-subheadline">Saídas da Faixa na Semana</h3>
-                <span className="badge-pill badge-amber">3 Registros</span>
-              </div>
-              <h4 className="card-bold-title">3 ocorrências térmicas registradas</h4>
-              <p className="card-muted-desc">
-                Eventos de parada técnica em baús frigoríficos com retorno automático para a temperatura ideal (+1.8 °C).
-              </p>
-            </div>
-
-            {/* Card: Rota Fria: Petrolina → Pecém */}
-            <div className="dash-white-card route-card-wrap">
-              <div className="card-header-clean">
-                <div className="route-header-title">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="1" y="3" width="15" height="13" rx="1.5" />
-                    <polygon points="16 8 20 8 23 11 23 16 16 16 8" />
-                    <circle cx="5.5" cy="18.5" r="2.5" />
-                    <circle cx="18.5" cy="18.5" r="2.5" />
-                  </svg>
-                  <h3 className="card-subheadline">Rota Fria: Petrolina → Pecém</h3>
-                </div>
-                <span className="badge-pill badge-green">+1.2°C OK</span>
-              </div>
-              <p className="route-sub-desc">Reefer MS-904 em trânsito rodoviário</p>
-
-              <div className="route-tracker-visual">
-                <div className="route-endpoint">
-                  <span className="route-pin-dot pin-blue" />
-                  <span className="route-name">Petrolina</span>
-                </div>
-
-                <div className="route-progress-bar-wrap">
-                  <span className="route-progress-tag">68% do trajeto (642 km)</span>
-                  <div className="route-track-line">
-                    <div className="route-track-fill" style={{ width: '68%' }} />
-                  </div>
-                  <button type="button" className="route-refresh-btn" title="Atualizar telemetria GPS">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0284c7" strokeWidth="2.5">
-                      <path d="M23 4v6h-6" />
-                      <path d="M1 20v-6h6" />
-                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                    </svg>
-                  </button>
-                </div>
-
-                <div className="route-endpoint">
-                  <span className="route-pin-dot pin-port" />
-                  <span className="route-name">Pecém</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Column 3 (Right): Monitoramento da Propriedade & Previsão do Tempo ── */}
-          <div className="dash-mid-col">
-            {/* Card: Monitoramento da propriedade */}
-            <div className="dash-white-card card-map-satellite">
-              <div className="card-header-clean">
-                <h2 className="card-headline-clean">Monitoramento da propriedade</h2>
-                <button type="button" className="btn-icon-ghost" title="Expandir visualização">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2">
-                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-                  </svg>
+            {/* Node Info Popover if Selected */}
+            {selectedNode && (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginLeft: 10,
+                  background: 'rgba(15, 23, 42, 0.88)',
+                  backdropFilter: 'blur(6px)',
+                  color: '#FFFFFF',
+                  padding: '5px 12px',
+                  borderRadius: 20,
+                  fontSize: '0.76rem',
+                }}
+              >
+                <strong>{selectedNode.label}</strong>
+                <span>• {selectedNode.talhao}</span>
+                <span style={{ color: '#34D399', fontWeight: 700 }}>VWC: {selectedNode.vwc}</span>
+                <span style={{ color: '#38BDF8' }}>Temp: {selectedNode.temp}</span>
+                <button
+                  type="button"
+                  style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: '0.85rem' }}
+                  onClick={() => setSelectedNode(null)}
+                >
+                  ×
                 </button>
               </div>
+            )}
+          </div>
+        </div>
 
-              {/* Satellite Map Container */}
-              <div className="farm-map-interactive-wrap">
-                <img
-                  src="/farm_satellite_map.jpg"
-                  alt="Monitoramento de Talhões - Petrolina"
-                  className="farm-satellite-bg"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                  }}
-                />
+        {/* Map Legend & Link */}
+        <div className="topology-legend-footer">
+          <div className="topology-legend-row">
+            <span className="topo-leg-item">
+              <span className="dot-mini-green" /> Sensores Ativos (22)
+            </span>
+            <span className="topo-leg-item">
+              <span className="dot-mini-amber" /> Atenção / Limiar (2)
+            </span>
+            <span className="topo-leg-item" style={{ color: '#475569', fontSize: '0.75rem' }}>
+              ↻ Taxa ThingSpeak: 5 min (BW 125kHz / US915)
+            </span>
+          </div>
+          <a href="/sensores" className="btn-ver-telemetria-link">
+            Ver telemetria detalhada →
+          </a>
+        </div>
+      </div>
 
-                <div className="map-zoom-controls">
-                  <button type="button" className="zoom-btn">+</button>
-                  <button type="button" className="zoom-btn">-</button>
-                  <button type="button" className="zoom-btn">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                      <polyline points="2 17 12 22 22 17" />
-                      <polyline points="2 12 12 17 22 12" />
-                    </svg>
-                  </button>
-                </div>
-
-                <svg className="map-polygons-svg" viewBox="0 0 500 280">
-                  <polygon points="210,60 300,55 315,110 220,115" fill="rgba(16, 185, 129, 0.28)" stroke="#10b981" strokeWidth="2.5" />
-                  <polygon points="120,135 340,130 330,195 110,200" fill="rgba(245, 158, 11, 0.28)" stroke="#f59e0b" strokeWidth="2.5" />
-                  <polygon points="360,70 435,65 425,125 350,130" fill="rgba(239, 68, 68, 0.28)" stroke="#ef4444" strokeWidth="2.5" />
+      {/* ── Bottom 2 Columns ── */}
+      <div className="analista-bottom-grid">
+        {/* Auditoria de Ingestão & Leituras Rejeitadas */}
+        <div className="dash-white-card">
+          <div className="config-card-header" style={{ marginBottom: 14 }}>
+            <div className="config-title-icon-row">
+              <div className="config-icon-sq icon-teal">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
                 </svg>
-
-                <div className="map-area-tag tag-area-a" style={{ top: '30%', left: '49%' }}>
-                  <span className="dot-badge-green" /> Área A
-                </div>
-                <div className="map-area-tag tag-area-b" style={{ top: '60%', left: '45%' }}>
-                  <span className="dot-badge-amber" /> Área B
-                </div>
-                <div className="map-area-tag tag-area-c" style={{ top: '34%', left: '76%' }}>
-                  <span className="dot-badge-red" /> Área C
-                </div>
               </div>
+              <div>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                  Auditoria de Ingestão & Leituras Rejeitadas
+                </h3>
+              </div>
+            </div>
+            <span className="badge-pill badge-amber-exact">2 Descartadas Hoje</span>
+          </div>
 
-              {/* Legend */}
-              <div className="map-legend-row">
-                <span className="legend-chip"><span className="legend-dot dot-otima" /> Ótima</span>
-                <span className="legend-chip"><span className="legend-dot dot-boa" /> Boa</span>
-                <span className="legend-chip"><span className="legend-dot dot-atencao" /> Atenção</span>
-                <span className="legend-chip"><span className="legend-dot dot-critica" /> Crítica</span>
-                <span className="legend-chip"><span className="legend-dot dot-semdados" /> Sem dados</span>
+          <div className="audit-ingestao-list">
+            <div className="audit-ing-item">
+              <div className="audit-ing-header">
+                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#475569' }}>
+                  Filtragem de ruídos físicos na tabela <code>leitura_rejeitada</code>
+                </span>
               </div>
             </div>
 
-            {/* Card: Previsão do tempo */}
-            <div className="dash-white-card">
-              <h2 className="card-headline-clean">Previsão do tempo</h2>
-
-              <div className="weather-current-row">
-                <div className="weather-main-left">
-                  <span className="weather-big-sun">☀️</span>
-                  <div className="weather-temp-col">
-                    <span className="weather-curr-temp">28°C</span>
-                    <span className="weather-desc">Ensolarado</span>
-                    <span className="weather-feels-like">Sensação térmica 30°C</span>
-                  </div>
+            {/* Sonda 1 */}
+            <div className="audit-ing-sensor-card">
+              <div className="audit-ing-sensor-header">
+                <span className="audit-sensor-label">Sonda Solo #SNS–SL–04</span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <span className="badge-pill badge-green-soft-chip">Talhão A1 • Uva Vitória</span>
                 </div>
-
-                <div className="weather-stats-grid">
-                  <div className="weather-stat-cell">
-                    <span className="weather-stat-label">Umidade</span>
-                    <span className="weather-stat-val">62%</span>
-                  </div>
-                  <div className="weather-stat-cell">
-                    <span className="weather-stat-label">Chuva</span>
-                    <span className="weather-stat-val">0 mm</span>
-                  </div>
-                  <div className="weather-stat-cell">
-                    <span className="weather-stat-label">Vento</span>
-                    <span className="weather-stat-val">12 km/h</span>
-                  </div>
-                  <div className="weather-stat-cell">
-                    <span className="weather-stat-label">UV</span>
-                    <span className="weather-stat-val">Moderado</span>
-                  </div>
-                </div>
+                <button type="button" className="btn-alertas-secondary" style={{ padding: '4px 10px', fontSize: '0.74rem' }}>
+                  Recalibrar Offset
+                </button>
               </div>
-
-              <div className="weather-forecast-section">
-                <span className="weather-forecast-heading">Previsão para os próximos dias</span>
-                <div className="weather-days-row">
-                  {[
-                    { day: 'Qua 23/09', icon: '☀️', max: '29°', min: '20°' },
-                    { day: 'Qui 24/09', icon: '🌤️', max: '28°', min: '19°' },
-                    { day: 'Sex 25/09', icon: '🌧️', max: '27°', min: '18°' },
-                    { day: 'Sáb 26/09', icon: '🌧️', max: '27°', min: '18°' },
-                    { day: 'Dom 27/09', icon: '⛅', max: '26°', min: '18°' },
-                    { day: 'Seg 28/09', icon: '☀️', max: '27°', min: '19°' },
-                  ].map((item, idx) => (
-                    <div key={idx} className="weather-day-item">
-                      <span className="weather-day-name">{item.day}</span>
-                      <span className="weather-day-icon">{item.icon}</span>
-                      <span className="weather-day-range">
-                        <strong>{item.max}</strong> / {item.min}
-                      </span>
-                    </div>
-                  ))}
+              <div className="audit-ing-reason">
+                <span className="dot-mini-red" style={{ width: 6, height: 6 }} />
+                <span>Motivo: Outlier térmico (temperatura_bruta = 62.4°C acima do limite físico)</span>
+              </div>
+              <div className="audit-ing-bar-row">
+                <span style={{ fontSize: '0.72rem', color: '#64748B' }}>Confiabilidade do algoritmo pós-descarte</span>
+                <div style={{ flex: 1, height: 4, background: '#E2E8F0', borderRadius: 4, margin: '0 8px' }}>
+                  <div style={{ width: '98.4%', height: '100%', background: '#10B981', borderRadius: 4 }} />
                 </div>
+                <strong style={{ fontSize: '0.78rem', color: '#065F46' }}>98.4%</strong>
+              </div>
+            </div>
+
+            {/* Sonda 2 */}
+            <div className="audit-ing-sensor-card">
+              <div className="audit-ing-sensor-header">
+                <span className="audit-sensor-label">Sonda FDR #SNS–SL–07</span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <span className="badge-pill badge-green-soft-chip">Talhão C2 • Manga Palmer</span>
+                </div>
+                <button type="button" className="btn-alertas-secondary" style={{ padding: '4px 10px', fontSize: '0.74rem' }}>
+                  Ver Log ThingSpeak
+                </button>
+              </div>
+              <div className="audit-ing-reason">
+                <span className="dot-mini-amber" style={{ width: 6, height: 6 }} />
+                <span>Motivo: Leitura analógica corrompida (umidade_bruta &lt; 0% VWC)</span>
+              </div>
+              <div className="audit-ing-bar-row">
+                <span style={{ fontSize: '0.72rem', color: '#64748B' }}>Progresso do reteste automático</span>
+                <div style={{ flex: 1, height: 4, background: '#E2E8F0', borderRadius: 4, margin: '0 8px' }}>
+                  <div style={{ width: '65%', height: '100%', background: '#0EA5E9', borderRadius: 4 }} />
+                </div>
+                <strong style={{ fontSize: '0.78rem', color: '#0284C7' }}>65% (48h/72h)</strong>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: 8, display: 'flex', justifyContent: 'space-between' }}>
+              <span>Última sincronização ThingSpeak às <strong>15:42</strong></span>
+              <a href="/sensores" style={{ color: '#059669', fontWeight: 600 }}>Histórico completo de descarte →</a>
+            </div>
+          </div>
+        </div>
+
+        {/* Modelos Preditivos & Limiares de Alerta */}
+        <div className="dash-white-card">
+          <div className="config-card-header" style={{ marginBottom: 14 }}>
+            <div className="config-title-icon-row">
+              <div className="config-icon-sq icon-teal">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2">
+                  <line x1="18" y1="20" x2="18" y2="10" />
+                  <line x1="12" y1="20" x2="12" y2="4" />
+                  <line x1="6" y1="20" x2="6" y2="14" />
+                </svg>
+              </div>
+              <div>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                  Modelos Preditivos & Limiares de Alerta
+                </h3>
+                <p style={{ fontSize: '0.76rem', color: '#64748B', margin: 0 }}>
+                  Regras automatizadas de estabilidade e previsão agronômica
+                </p>
               </div>
             </div>
           </div>
-        </section>
 
-        {/* ── Bottom Row: 4 Telemetry Sensor Cards ── */}
-        <section className="dash-telemetry-grid">
-          {[
-            { chave: 'umidadeAr', titulo: 'Umidade do ar', unit: '%', defVal: '62%', color: '#10b981' },
-            { chave: 'umidadeSolo', titulo: 'Umidade do solo', unit: '%', defVal: '58%', color: '#0d9488' },
-            { chave: 'temperaturaSolo', titulo: 'Temperatura do solo', unit: '°C', defVal: '48%', color: '#0284c7' },
-            { chave: 'temperaturaAr', titulo: 'Temperatura do ar', unit: '°C', defVal: '48%', color: '#10b981' },
-          ].map(({ chave, titulo, unit, defVal, color }) => {
-            const dado = seriesSensores?.[chave];
-            const r = resumirSerie(dado?.series);
-            return (
-              <TelemetrySensorCard
-                key={chave}
-                title={titulo}
-                unit={unit}
-                color={color}
-                value={r ? `${r.atual.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}${unit}` : defVal}
-                status={r ? (dado.source === 'sensor' ? 'Sensor' : 'Ideal') : 'Ideal'}
-                points={r?.points ?? defaultPointsMap[chave]}
-                dates={r?.dates ?? defaultDates}
-              />
-            );
-          })}
-        </section>
+          <div className="predictive-models-list">
+            {/* Modelo 1: Risco de Déficit Hídrico */}
+            <div className="predictive-model-card model-critical">
+              <div className="model-card-header">
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <span className="dot-mini-amber" />
+                    <strong style={{ fontSize: '0.88rem', color: '#0F172A' }}>Risco de Déficit Hídrico Severo</strong>
+                  </div>
+                  <span className="badge-pill badge-risk-pill">CORTE PREDITIVO: ALTO</span>
+                </div>
+              </div>
+              <p style={{ fontSize: '0.82rem', color: '#334155', lineHeight: 1.5, margin: '8px 0' }}>
+                Probabilidade projetada em <strong>84%</strong> para as próximas 12 horas no Talhão A1 com base na evapotranspiração Penman-Monteith.
+              </p>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: '0.78rem', color: '#65A30D' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="10" r="3" />
+                  <path d="M12 2a8 8 0 0 0-8 8c0 5.5 8 14 8 14s8-8.5 8-14a8 8 0 0 0-8-8z" />
+                </svg>
+                <span>Ação recomendada: <strong>Antecipar irrigação matinal em 40 min.</strong></span>
+              </div>
+            </div>
+
+            {/* Config items */}
+            <div className="predictive-config-item">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="config-icon-sq icon-teal" style={{ width: 28, height: 28 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0d9488" strokeWidth="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#0F172A' }}>Frequência de Ingestão ThingSpeak</div>
+                  <div style={{ fontSize: '0.74rem', color: '#64748B' }}>Balanço de energia solar na transmissão de pacotes</div>
+                </div>
+              </div>
+              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#059669', textAlign: 'right' }}>
+                A cada 5 min<br />
+                <span style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 500 }}>(US915)</span>
+              </span>
+            </div>
+
+            <div className="predictive-config-item">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="config-icon-sq icon-green" style={{ width: 28, height: 28 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#0F172A' }}>Filtro de Ruído & Auto-calibração FDR</div>
+                  <div style={{ fontSize: '0.74rem', color: '#64748B' }}>Compensação térmica e salinidade em ciclo de 7 dias</div>
+                </div>
+              </div>
+              <label className="switch-toggle-label" style={{ flexShrink: 0 }}>
+                <input type="checkbox" defaultChecked />
+                <span className="switch-toggle-slider" />
+              </label>
+            </div>
+
+            {/* Success toast */}
+            <div className="audit-success-toast">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <div>
+                <strong>Transição Concluída com Sucesso</strong>
+                <p style={{ margin: 0, fontSize: '0.74rem', color: '#047857' }}>
+                  Integridade de dados 100% sincronizada com canais ThingSpeak.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+    </div>
+  );
+}
+
+/* ── Router por Perfil com Seletor Rápido ── */
+export default function DashboardPage() {
+  const { user } = useAuth();
+  const isAnalistaUser = user?.role === 'Analista';
+  const [manualRoleView, setManualRoleView] = useState(null);
+  const activeRoleView = manualRoleView !== null ? manualRoleView : (isAnalistaUser ? 'analista' : 'gestora');
+
+  return (
+    <div>
+      {/* ── Subheader Profile Tab Switcher ── */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 10,
+          background: '#FFFFFF',
+          padding: '8px 16px',
+          borderRadius: 'var(--ios-radius-md)',
+          border: '1.5px solid #E2E8F0',
+          marginBottom: 10,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="dot-mini-green" />
+          <strong style={{ fontSize: '0.84rem', color: '#0F172A' }}>
+            Visão Geral por Perfil:
+          </strong>
+          <span style={{ fontSize: '0.78rem', color: '#64748B' }}>
+            {activeRoleView === 'analista'
+              ? 'Visão Analista IoT (Luiz Felipe — Topologia Espacial & Ingestão ThingSpeak)'
+              : 'Visão Gestora (Maria Clara — Balanço Agronômico & Classificação Comercial)'}
+          </span>
+        </div>
+
+        <div className="view-toggle-group">
+          <button
+            type="button"
+            className={`view-toggle-btn ${activeRoleView === 'analista' ? 'active' : ''}`}
+            onClick={() => setManualRoleView('analista')}
+          >
+            📡 Analista IoT (Luiz Felipe)
+          </button>
+          <button
+            type="button"
+            className={`view-toggle-btn ${activeRoleView === 'gestora' ? 'active' : ''}`}
+            onClick={() => setManualRoleView('gestora')}
+          >
+            👩‍🌾 Gestora (Maria Clara)
+          </button>
+        </div>
+      </div>
+
+      {activeRoleView === 'analista' ? <DashboardAnalista /> : <DashboardGestora />}
     </div>
   );
 }

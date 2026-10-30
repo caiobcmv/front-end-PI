@@ -4,8 +4,8 @@ const AuthContext = createContext();
 
 export const ROLES = {
   GESTORA: 'Gestora',
+  ANALISTA: 'Analista',
   PRODUTOR: 'Produtor',
-  LOGISTICA: 'Logística Fria',
   ADMIN: 'Admin IoT',
 };
 
@@ -67,4 +67,3 @@ export function useAuth() {
   }
   return context;
 }
-

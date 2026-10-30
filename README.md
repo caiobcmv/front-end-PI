@@ -1,6 +1,6 @@
 # Projeto Integrador - IoT Agro
 
-Plataforma de monitoramento climático e logístico em nuvem desenvolvida para produtores e exportadores da região do Vale do São Francisco (Petrolina/Juazeiro). O sistema integra dados de sensores IoT, gestão de lotes e previsão de safra em um painel centralizado com controle de acesso por perfil.
+Plataforma de monitoramento climático e agronômico em nuvem desenvolvida para produtores e exportadores da região do Vale do São Francisco (Petrolina/Juazeiro). O sistema integra dados de sensores IoT, gestão de lotes e previsão de safra em um painel centralizado com controle de acesso por perfil.
 
 ---
 
@@ -10,13 +10,14 @@ O IoT Agro é um dashboard web que reúne informações operacionais e de inteli
 
 **Principais funcionalidades:**
 
-- Autenticação com seleção de perfil de acesso (Produtor, Logística Fria, Admin IoT)
+- Autenticação com seleção de perfil de acesso (Produtor, Gestora, Admin IoT)
 - Dashboard geral com indicadores de sensores e lotes
 - Monitoramento de status de sensores IoT
-- Gestão e rastreamento de lotes de produção
+- Gestão e rastreamento de safras e talhões de produção
 - Previsão de safra e análise climática
-- Histórico climático da região
+- Histórico de safra com comparativo de ciclos e correlação IoT
 - Dados de mercado e exportação
+- Central de alertas operacionais e monitoramento
 - Área administrativa com gestão de usuários, auditoria e configurações (restrita ao Admin)
 - Controle de acesso baseado em perfis (RBAC)
 
@@ -41,22 +42,18 @@ O IoT Agro é um dashboard web que reúne informações operacionais e de inteli
 ```
 src/
 ├── assets/          # Imagens e arquivos estáticos
-├── components/      # Componentes reutilizáveis (Header, Navigation, Layout, RoleSelector...)
+├── components/      # Componentes reutilizáveis (Header, Navigation, Layout, TopHeader...)
 ├── context/         # Contexto de autenticação (AuthContext)
 ├── pages/           # Páginas da aplicação
 │   ├── LoginPage.jsx
 │   ├── CadastroPage.jsx
 │   ├── DashboardPage.jsx
 │   ├── SensoresPage.jsx
-│   ├── LotesPage.jsx
-│   ├── LoteDetalhePage.jsx
-│   ├── PrevisaoPage.jsx
 │   ├── HistoricoPage.jsx
-│   ├── MercadoPage.jsx
-│   ├── UsuariosPage.jsx
-│   ├── AuditoriaPage.jsx
+│   ├── AlertasPage.jsx
 │   └── ConfiguracaoPage.jsx
 ├── routes/          # Definição de rotas e proteção por perfil (AppRoutes, ProtectedRoute)
+├── styles/          # Folhas de estilo modulares (ios-theme.css, dashboard-views.css)
 ├── index.css        # Estilos globais
 └── main.jsx         # Ponto de entrada da aplicação
 ```
@@ -67,8 +64,7 @@ src/
 
 O sistema utiliza controle de acesso baseado em perfis (RBAC):
 
-- **Produtor** - Acesso ao painel operacional, sensores, lotes, previsão, historico e mercado
-- **Logística Fria** - Mesmo acesso do produtor, com foco em logística de cadeia fria
+- **Produtor / Gestora** - Acesso ao painel operacional, sensores, histórico de safras, alertas e mercado
 - **Admin IoT** - Acesso completo, incluindo gestão de usuários, auditoria e configurações do sistema
 
 ---
@@ -148,7 +144,7 @@ A porta do front (`5173` ou `5174`) já está liberada no CORS do back. Se o Vit
 
 | Tela | Endpoints |
 |---|---|
-| Sensores (`/sensores`, acessível pelo endereço, ainda sem item no menu) | `GET /sensores`, `GET /sensores/{id}/leituras`, `GET /leituras` |
+| Sensores (`/sensores`) | `GET /sensores`, `GET /sensores/{id}/leituras`, `GET /leituras` |
 | Dashboard (indicadores, medidor e gráficos de telemetria) | `GET /dashboard/resumo`, `GET /sensores/{id}/leituras` |
 | Alertas | `GET /alertas`, `PATCH /alertas/{id}/status` |
 | Cadastro | `GET /perfis`, `POST /usuarios` |
@@ -195,6 +191,8 @@ O estado de autenticação é mantido via `localStorage` para persistência entr
 | FE-D02 | Cliente HTTP e tratamento de erros base |
 | FE-D08 | Aumento da fonte e melhoria do contraste visual |
 | FE-D10 | Toggle de visão Resumida e Detalhada no Dashboard |
+| FE-D12 | Remover tela de logística fria e atualizar tela do histórico de safra |
+| FE-D13 | Ajustar fontes e contraste das páginas |
 
 ---
 

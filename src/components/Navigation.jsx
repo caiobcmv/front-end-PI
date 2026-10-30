@@ -1,7 +1,11 @@
 import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function Navigation() {
+  const { user } = useAuth();
+  const isAnalista = user?.role === 'Analista';
+
   return (
     <aside className="app-navigation">
       {/* Brand / Logo */}
@@ -27,10 +31,10 @@ export default function Navigation() {
         </Link>
       </div>
 
-      {/* Navigation List - 5 clean tabs */}
+      {/* Navigation List - adaptive by role */}
       <nav className="nav-menu">
         <ul className="nav-list">
-          {/* 1. Visão geral */}
+          {/* 1. Visão geral — ambos os roles */}
           <li className="nav-item">
             <NavLink to="/" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <span className="nav-icon-wrap">
@@ -45,22 +49,44 @@ export default function Navigation() {
             </NavLink>
           </li>
 
-          {/* 2. Logística Fria */}
-          <li className="nav-item">
-            <NavLink to="/logistica" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-              <span className="nav-icon-wrap">
-                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="1" y="3" width="15" height="13" rx="1.5" />
-                  <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
-                  <circle cx="5.5" cy="18.5" r="2.5" />
-                  <circle cx="18.5" cy="18.5" r="2.5" />
-                </svg>
-              </span>
-              <span className="nav-text">Logística Fria</span>
-            </NavLink>
-          </li>
+          {/* Analista: Sensores & Rede ESP32 */}
+          {isAnalista && (
+            <>
+              <li className="nav-item">
+                <NavLink to="/sensores" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+                  <span className="nav-icon-wrap">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
+                      <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5" />
+                      <circle cx="12" cy="12" r="2" />
+                      <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5" />
+                      <path d="M19.1 4.9C23 8.8 23 15.1 19.1 19" />
+                    </svg>
+                  </span>
+                  <span className="nav-text">Sensores</span>
+                </NavLink>
+              </li>
 
-          {/* 3. Histórico Safra */}
+              <li className="nav-item">
+                <NavLink to="/rede-esp32" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+                  <span className="nav-icon-wrap">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="2" width="8" height="8" rx="2" />
+                      <rect x="14" y="2" width="8" height="8" rx="2" />
+                      <rect x="8" y="14" width="8" height="8" rx="2" />
+                      <line x1="6" y1="10" x2="6" y2="14" />
+                      <line x1="18" y1="10" x2="18" y2="14" />
+                      <line x1="6" y1="14" x2="12" y2="14" />
+                      <line x1="18" y1="14" x2="12" y2="14" />
+                    </svg>
+                  </span>
+                  <span className="nav-text">Rede ESP32</span>
+                </NavLink>
+              </li>
+            </>
+          )}
+
+          {/* Histórico Safra — ambos os roles */}
           <li className="nav-item">
             <NavLink to="/historico" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <span className="nav-icon-wrap">
@@ -76,7 +102,7 @@ export default function Navigation() {
             </NavLink>
           </li>
 
-          {/* 4. Alertas */}
+          {/* Alertas — ambos os roles */}
           <li className="nav-item">
             <NavLink to="/alertas" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <span className="nav-icon-wrap">
@@ -90,7 +116,7 @@ export default function Navigation() {
             </NavLink>
           </li>
 
-          {/* 5. Configurações */}
+          {/* Configurações — ambos os roles */}
           <li className="nav-item">
             <NavLink to="/configuracao" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <span className="nav-icon-wrap">
@@ -118,7 +144,7 @@ export default function Navigation() {
         <div className="nav-gateway-pill">
           <div className="gateway-left">
             <span className="gateway-dot-green" />
-            <span className="gateway-title">ESP32</span>
+            <span className="gateway-title">{isAnalista ? 'LoRa Gateway' : 'ESP32'}</span>
           </div>
           <span className="gateway-status-text">Conectado</span>
         </div>
