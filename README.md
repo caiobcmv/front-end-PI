@@ -153,6 +153,31 @@ A porta do front (`5173` ou `5174`) já está liberada no CORS do back. Se o Vit
 
 ## Comandos Disponíveis
 
+- `npm run dev` – inicia o servidor de desenvolvimento (Vite) em `http://localhost:5173`.
+- `npm run build` – gera o build de produção na pasta `dist/`.
+- `npm run preview` – serve o build localmente.
+- `npm run lint` – executa o linter.
+- `npm test` – roda a suíte de testes unitários (Jest).
+
+---
+
+## Novas Funcionalidades
+
+- **Componentes UI reutilizáveis**:
+  - `LoadingSpinner` – indicador de carregamento usado em todas as páginas que fazem chamadas assíncronas.
+  - `ErrorBanner` – banner de erro centralizado que exibe mensagens amigáveis.
+- **Novas páginas e serviços**:
+  - `ClimaPage` (exibe dados climáticos via endpoint `/clima`).
+  - `frutasService` (CRUD para recursos `/frutas`).
+  - `relatorioService` (geração e download de relatórios CSV). 
+  - `previsaoService` (alertas preditivos, previsões de janela de colheita e riscos climáticos).
+  - `auditoriaService` (consulta de logs de auditoria).
+- **Atualizações nas páginas existentes**:
+  - `AlertasPage` agora usa `LoadingSpinner` e `ErrorBanner` e traz alertas reais e preditivos.
+  - `ConfiguracaoPage` inclui tratamento de erro e loading ao buscar parâmetros.
+
+---
+
 ```bash
 npm run dev       # Inicia o servidor de desenvolvimento
 npm run build     # Gera o build de produção em /dist

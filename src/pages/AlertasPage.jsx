@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorBanner from '../components/ErrorBanner';
 import { Link } from 'react-router-dom';
 import TopHeader from '../components/TopHeader';
+import { getAlertas } from '../services/alertasService';
+import { resolverAlerta } from '../services/alertasService';
+import { getAlertasPreditivos } from '../services/previsaoService';
 import { useAuth } from '../context/AuthContext';
 
 /* ═══════════════════════════════════════════════════════════════════
