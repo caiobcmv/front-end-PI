@@ -14,15 +14,25 @@ export default function TopHeader({
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
+  const isAdmin =
+    user?.role === 'Admin IoT' ||
+    user?.role === 'Admin' ||
+    user?.role === 'Administrador' ||
+    user?.email?.toLowerCase()?.includes('admin');
   const isAnalista = user?.role === 'Analista';
-  const userName = user?.name || (isAnalista ? 'Luiz Felipe' : 'Maria Clara');
-  const userRole = user?.role || (isAnalista ? 'Analista' : 'Gestora');
+
+  const userName =
+    user?.name || (isAdmin ? 'Administrador IoT' : isAnalista ? 'Luiz Felipe' : 'Maria Clara');
+  const userRole =
+    user?.role || (isAdmin ? 'Admin IoT' : isAnalista ? 'Analista' : 'Gestora');
+
   const initials = userName
     .split(' ')
+    .filter(Boolean)
     .map((n) => n[0])
     .join('')
     .slice(0, 2)
-    .toUpperCase();
+    .toUpperCase() || 'RA';
 
   const handleLogout = () => {
     logout();
@@ -30,7 +40,9 @@ export default function TopHeader({
   };
 
   const handleSwitchProfile = (targetRole) => {
-    if (targetRole === 'Analista') {
+    if (targetRole === 'Admin') {
+      login('Admin IoT', 'Administrador IoT', 'admin@raizagro.agr.br');
+    } else if (targetRole === 'Analista') {
       login('Analista', 'Luiz Felipe', 'luiz.felipe@raizagro.agr.br');
     } else {
       login('Gestora', 'Maria Clara', 'maria.clara@raizagro.agr.br');
@@ -120,7 +132,7 @@ export default function TopHeader({
             <div className="user-dropdown-menu">
               <div className="user-dropdown-header">
                 <strong>{userName}</strong>
-                <span>{user?.email || (isAnalista ? 'luiz.felipe@raizagro.agr.br' : 'gestora@raizagro.agr.br')}</span>
+                <span>{user?.email || (isAdmin ? 'admin@raizagro.agr.br' : isAnalista ? 'luiz.felipe@raizagro.agr.br' : 'gestora@raizagro.agr.br')}</span>
               </div>
               <div className="user-dropdown-divider" />
               
@@ -128,25 +140,33 @@ export default function TopHeader({
               <div style={{ padding: '6px 12px', fontSize: '0.72rem', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>
                 Alternar Perfil
               </div>
-              {isAnalista ? (
-                <button
-                  type="button"
-                  className="user-dropdown-item"
-                  style={{ color: '#065F46', fontWeight: 600 }}
-                  onClick={() => handleSwitchProfile('Gestora')}
-                >
-                  <span style={{ marginRight: 6 }}>👩‍🌾</span> Maria Clara (Gestora)
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="user-dropdown-item"
-                  style={{ color: '#065F46', fontWeight: 600 }}
-                  onClick={() => handleSwitchProfile('Analista')}
-                >
-                  <span style={{ marginRight: 6 }}>📡</span> Luiz Felipe (Analista IoT)
-                </button>
-              )}
+
+              <button
+                type="button"
+                className="user-dropdown-item"
+                style={{ color: isAdmin ? '#0071E3' : '#0F172A', fontWeight: isAdmin ? 700 : 500 }}
+                onClick={() => handleSwitchProfile('Admin')}
+              >
+                <span style={{ marginRight: 6 }}>⚡</span> Administrador IoT
+              </button>
+
+              <button
+                type="button"
+                className="user-dropdown-item"
+                style={{ color: isAnalista ? '#0071E3' : '#0F172A', fontWeight: isAnalista ? 700 : 500 }}
+                onClick={() => handleSwitchProfile('Analista')}
+              >
+                <span style={{ marginRight: 6 }}>📡</span> Luiz Felipe (Analista)
+              </button>
+
+              <button
+                type="button"
+                className="user-dropdown-item"
+                style={{ color: (!isAdmin && !isAnalista) ? '#0071E3' : '#0F172A', fontWeight: (!isAdmin && !isAnalista) ? 700 : 500 }}
+                onClick={() => handleSwitchProfile('Gestora')}
+              >
+                <span style={{ marginRight: 6 }}>👩‍🌾</span> Maria Clara (Gestora)
+              </button>
 
               <div className="user-dropdown-divider" />
               <button

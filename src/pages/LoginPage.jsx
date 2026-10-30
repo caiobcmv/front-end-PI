@@ -3,34 +3,59 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import farmImage from '../assets/auth-farm.jpg';
 
-const PROFILES = [
-  { role: 'Gestora', name: 'Maria Clara', email: 'maria.clara@raizagro.agr.br', label: 'Gestora', color: '#10B981' },
-  { role: 'Analista', name: 'Luiz Felipe', email: 'luiz.felipe@raizagro.agr.br', label: 'Analista IoT', color: '#0EA5E9' },
-];
-
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const [selectedProfile, setSelectedProfile] = useState(0);
-  const [password, setPassword] = useState('••••••••••••');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const profile = PROFILES[selectedProfile];
-
   const handleLogin = (e) => {
     if (e) e.preventDefault();
+    const cleanEmail = (email || '').trim();
+    const cleanPassword = (password || '').trim();
+
+    if (!cleanEmail) {
+      setError('Por favor, informe seu e-mail institucional.');
+      return;
+    }
+    if (!cleanPassword) {
+      setError('Por favor, informe sua senha de acesso.');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
     setTimeout(() => {
-      login(profile.role, profile.name, profile.email);
+      let role = 'Gestora';
+      let name = 'Maria Clara';
+
+      const lower = cleanEmail.toLowerCase();
+      if (lower.includes('admin')) {
+        role = 'Admin IoT';
+        name = 'Administrador IoT';
+      } else if (lower.includes('analista') || lower.includes('luiz')) {
+        role = 'Analista';
+        name = 'Luiz Felipe';
+      } else if (lower.includes('produtor')) {
+        role = 'Produtor';
+        name = 'Produtor Rural';
+      } else {
+        const prefix = cleanEmail.split('@')[0].replace(/[._]/g, ' ').trim();
+        if (prefix && !lower.includes('maria') && !lower.includes('gestora')) {
+          name = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+        }
+      }
+
+      login(role, name, cleanEmail);
       setIsLoading(false);
       navigate('/');
-    }, 400);
+    }, 450);
   };
 
   return (
@@ -89,7 +114,7 @@ export default function LoginPage() {
 
           <div className="auth-header-block">
             <h1 className="auth-heading">Acesse sua conta</h1>
-            <p className="auth-subheading">Painel de controle agroclimático e cadeia fria</p>
+            <p className="auth-subheading">Painel de controle agroclimático e telemetria IoT</p>
           </div>
 
           {isLoading && (
@@ -98,44 +123,12 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Profile Switcher */}
-          <div className="auth-profile-switcher">
-            <span className="auth-field-label" style={{ fontSize: '0.78rem', color: '#86EFAC', display: 'block', marginBottom: '8px' }}>
-              PERFIL DE ACESSO
-            </span>
-            <div className="auth-profile-cards-row">
-              {PROFILES.map((p, idx) => (
-                <button
-                  key={p.role}
-                  type="button"
-                  className={`auth-profile-card ${selectedProfile === idx ? 'auth-profile-card-active' : ''}`}
-                  onClick={() => setSelectedProfile(idx)}
-                  style={{ borderColor: selectedProfile === idx ? p.color : 'rgba(255,255,255,0.12)' }}
-                >
-                  <div
-                    className="auth-profile-avatar-sm"
-                    style={{ background: p.color }}
-                  >
-                    {p.name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
-                  </div>
-                  <div className="auth-profile-text-col">
-                    <span className="auth-profile-name-sm">{p.name}</span>
-                    <span className="auth-profile-role-sm" style={{ color: p.color }}>{p.label}</span>
-                  </div>
-                  {selectedProfile === idx && (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={p.color} strokeWidth="2.5">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <form onSubmit={handleLogin} className="auth-modern-form" noValidate>
-            {/* Campo E-mail (display-only, baseado no perfil) */}
+            {/* Campo E-mail */}
             <div className="auth-field-group">
-              <label className="auth-field-label">E-MAIL CORPORATIVO</label>
+              <label htmlFor="login-email" className="auth-field-label">
+                E-MAIL CORPORATIVO
+              </label>
               <div className="auth-input-container">
                 <span className="auth-input-icon">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
@@ -144,12 +137,15 @@ export default function LoginPage() {
                   </svg>
                 </span>
                 <input
+                  id="login-email"
                   type="email"
                   className="auth-text-input"
-                  value={profile.email}
-                  readOnly
-                  style={{ opacity: 0.7 }}
+                  placeholder="ex: admin@raizagro.agr.br"
+                  value={email}
+                  disabled={isLoading}
+                  onChange={(e) => setEmail(e.target.value)}
                   autoComplete="username"
+                  required
                 />
               </div>
             </div>
@@ -170,11 +166,12 @@ export default function LoginPage() {
                   id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   className="auth-text-input"
-                  placeholder="••••••••••••"
+                  placeholder="Digite sua senha"
                   value={password}
                   disabled={isLoading}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
+                  required
                 />
                 <button
                   type="button"
@@ -215,7 +212,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 className="auth-inline-forgot"
-                onClick={() => alert('Para recuperação de senha contate o suporte do TI Raíz.')}
+                onClick={() => alert('Para recuperação de credenciais contate a equipe de TI Raíz Agro.')}
               >
                 Esqueceu a senha?
               </button>

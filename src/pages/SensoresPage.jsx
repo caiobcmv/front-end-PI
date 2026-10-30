@@ -4,7 +4,45 @@ import TopHeader from '../components/TopHeader';
 export default function SensoresPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedChannel, setSelectedChannel] = useState('246901');
+  const channelDataMap = {
+    '246901': {
+      label: 'Lote 1 • Uva Niágara (Talhão A1)',
+      soilPath: 'M 40 70 Q 200 60 380 90 T 580 80 T 740 75',
+      soilArea: 'M 40 70 Q 200 60 380 90 T 580 80 T 740 75 L 740 160 L 40 160 Z',
+      tempPath: 'M 40 120 Q 220 110 400 65 T 560 50 T 740 110',
+      peakText: 'PICO 31.2°C às 13:45',
+      peakX: 560,
+      peakY: 50,
+      tempSoloAr: '{curChannel.tempSoloAr}',
+      umidSoloAr: '{curChannel.umidSoloAr}',
+      entry: '#14.892',
+    },
+    '246902': {
+      label: 'Lote 2 • Uva Crimson (Talhão A2)',
+      soilPath: 'M 40 95 Q 200 85 380 110 T 580 100 T 740 92',
+      soilArea: 'M 40 95 Q 200 85 380 110 T 580 100 T 740 92 L 740 160 L 40 160 Z',
+      tempPath: 'M 40 110 Q 220 100 400 55 T 560 38 T 740 105',
+      peakText: 'PICO 32.8°C às 14:10',
+      peakX: 560,
+      peakY: 38,
+      tempSoloAr: '25.8°C / 31.5°C',
+      umidSoloAr: '37.8% / 52.0%',
+      entry: '#14.589',
+    },
+    '246903': {
+      label: 'Lote 3 • Thompson Seedless (Talhão B1)',
+      soilPath: 'M 40 55 Q 200 50 380 65 T 580 60 T 740 58',
+      soilArea: 'M 40 55 Q 200 50 380 65 T 580 60 T 740 58 L 740 160 L 40 160 Z',
+      tempPath: 'M 40 130 Q 220 120 400 80 T 560 65 T 740 120',
+      peakText: 'PICO 29.4°C às 13:15',
+      peakX: 560,
+      peakY: 65,
+      tempSoloAr: '23.8°C / 26.5°C',
+      umidSoloAr: '52.1% / 66.4%',
+      entry: '#11.204',
+    },
+  };
+  const curChannel = channelDataMap[selectedChannel] || channelDataMap['246901'];
 
   const sensores = [
     {
@@ -224,11 +262,11 @@ export default function SensoresPage() {
 
             {/* Curve 1: Umidade Solo (green filled) */}
             <path
-              d="M 40 70 Q 200 60 380 90 T 580 80 T 740 75 L 740 160 L 40 160 Z"
+              d={curChannel.soilArea}
               fill="url(#greenFillGrad)"
             />
             <path
-              d="M 40 70 Q 200 60 380 90 T 580 80 T 740 75"
+              d={curChannel.soilPath}
               fill="none"
               stroke="#10b981"
               strokeWidth="2.5"
@@ -236,16 +274,16 @@ export default function SensoresPage() {
 
             {/* Curve 2: Temperatura Ar (blue) */}
             <path
-              d="M 40 120 Q 220 110 400 65 T 560 50 T 740 110"
+              d={curChannel.tempPath}
               fill="none"
               stroke="#0284c7"
               strokeWidth="2.5"
             />
 
             {/* Peak point indicator */}
-            <circle cx="560" cy="50" r="5" fill="#0284c7" stroke="#FFFFFF" strokeWidth="2" />
-            <rect x="520" y="24" width="85" height="18" rx="4" fill="#0F172A" />
-            <text x="562" y="36" fill="#FFFFFF" fontSize="9" fontWeight="700" textAnchor="middle">PICO 31.2°C às 13:45</text>
+            <circle cx={curChannel.peakX} cy={curChannel.peakY} r="5" fill="#0284c7" stroke="#FFFFFF" strokeWidth="2" />
+            <rect x={curChannel.peakX - 44} y={curChannel.peakY - 26} width="92" height="18" rx="4" fill="#0F172A" />
+            <text x={curChannel.peakX + 2} y={curChannel.peakY - 14} fill="#FFFFFF" fontSize="8.5" fontWeight="700" textAnchor="middle">{curChannel.peakText}</text>
 
             {/* Time ticks */}
             <text x="40" y="175" fill="#64748B" fontSize="10">00:00</text>
@@ -275,7 +313,7 @@ export default function SensoresPage() {
 
           <div className="c-highlight-box">
             <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#065F46' }}>
-              entry_id #14.892
+              entry_id {curChannel.entry}
             </span>
             <span style={{ fontSize: '0.74rem', color: '#64748B' }}>ThingSpeak feed verificado</span>
           </div>

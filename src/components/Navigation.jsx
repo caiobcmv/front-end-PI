@@ -4,7 +4,13 @@ import { useAuth } from '../context/AuthContext';
 
 export default function Navigation() {
   const { user } = useAuth();
-  const isAnalista = user?.role === 'Analista';
+  const isAdminOrAnalista =
+    user?.role === 'Analista' ||
+    user?.role === 'Admin IoT' ||
+    user?.role === 'Admin' ||
+    user?.role === 'Administrador' ||
+    user?.email?.toLowerCase()?.includes('admin') ||
+    user?.email?.toLowerCase()?.includes('analista');
 
   return (
     <aside className="app-navigation">
@@ -49,8 +55,8 @@ export default function Navigation() {
             </NavLink>
           </li>
 
-          {/* Analista: Sensores & Rede ESP32 */}
-          {isAnalista && (
+          {/* Analista / Admin: Sensores & Rede ESP32 */}
+          {isAdminOrAnalista && (
             <>
               <li className="nav-item">
                 <NavLink to="/sensores" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
@@ -116,7 +122,7 @@ export default function Navigation() {
             </NavLink>
           </li>
 
-          {/* Configurações — ambos os roles */}
+          {/* Configurações — todos os roles */}
           <li className="nav-item">
             <NavLink to="/configuracao" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <span className="nav-icon-wrap">
@@ -144,7 +150,7 @@ export default function Navigation() {
         <div className="nav-gateway-pill">
           <div className="gateway-left">
             <span className="gateway-dot-green" />
-            <span className="gateway-title">{isAnalista ? 'LoRa Gateway' : 'ESP32'}</span>
+            <span className="gateway-title">{isAdminOrAnalista ? 'Concentrador LoRa' : 'ESP32'}</span>
           </div>
           <span className="gateway-status-text">Conectado</span>
         </div>
