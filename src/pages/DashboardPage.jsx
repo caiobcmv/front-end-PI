@@ -715,328 +715,86 @@ function DashboardAnalista() {
       {viewMode === 'detalhado' && <AdminTelemetryCharts />}
 
       {/* ── Topologia de Sensores no Campo (Satellite Aerial Map) ── */}
-      <div className="dash-white-card sensor-topology-card" style={{ marginTop: 20, padding: '20px 24px' }}>
-        <div className="sensor-topology-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          {/* Title Box */}
-          <div className="sensor-topology-title-row" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="dash-white-card sensor-topology-card" style={{ marginTop: 20, padding: '16px 20px' }}>
+        <div style={{ position: 'relative', width: '100%', borderRadius: '16px', overflow: 'hidden', border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)' }}>
+          <img
+            src="/mapa_topologia_analista.png"
+            alt="Topologia de Sensores no Campo - Vale do São Francisco"
+            style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '16px' }}
+          />
+
+          {/* Hotspots interativos clicáveis sobre os nós */}
+          <button
+            type="button"
+            style={{ position: 'absolute', top: '23%', left: '46%', width: '5%', height: '7.5%', opacity: 0, cursor: 'pointer', border: 'none', background: 'transparent' }}
+            onClick={() => setSelectedNode(sensorNodes.find(n => n.id === '03'))}
+            title="SNS-SL-03 (Talhão A2 • Uva Crimson)"
+          />
+          <button
+            type="button"
+            style={{ position: 'absolute', top: '39%', left: '44%', width: '6%', height: '9%', opacity: 0, cursor: 'pointer', border: 'none', background: 'transparent' }}
+            onClick={() => setSelectedNode(sensorNodes.find(n => n.id === '19'))}
+            title="SNS-SL-19 (Talhão A1 • Estresse Hídrico P1)"
+          />
+          <button
+            type="button"
+            style={{ position: 'absolute', top: '45%', left: '49%', width: '5%', height: '7.5%', opacity: 0, cursor: 'pointer', border: 'none', background: 'transparent' }}
+            onClick={() => setSelectedNode(sensorNodes.find(n => n.id === '01'))}
+            title="SNS-SL-01 (Talhão A1 • Uva Vitória)"
+          />
+          <button
+            type="button"
+            style={{ position: 'absolute', top: '26%', left: '74%', width: '5%', height: '7.5%', opacity: 0, cursor: 'pointer', border: 'none', background: 'transparent' }}
+            onClick={() => setSelectedNode(sensorNodes.find(n => n.id === '04'))}
+            title="SNS-AR-04 (Talhão B1 • Microclima)"
+          />
+          <button
+            type="button"
+            style={{ position: 'absolute', top: '39%', left: '77%', width: '5%', height: '7.5%', opacity: 0, cursor: 'pointer', border: 'none', background: 'transparent' }}
+            onClick={() => setSelectedNode(sensorNodes.find(n => n.id === '08'))}
+            title="SNS-AR-08 (Talhão B2 • Estação Ar)"
+          />
+          <button
+            type="button"
+            style={{ position: 'absolute', top: '51%', left: '72%', width: '5%', height: '7.5%', opacity: 0, cursor: 'pointer', border: 'none', background: 'transparent' }}
+            onClick={() => setSelectedNode(sensorNodes.find(n => n.id === '07'))}
+            title="SNS-AR-07 (Talhão C1 • Microclima)"
+          />
+
+          {/* Node Info Popover if Selected */}
+          {selectedNode && (
             <div
-              style={{
-                width: 42,
-                height: 42,
-                background: '#ECFDF5',
-                border: '1px solid #D1FAE5',
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#133E26" strokeWidth="2">
-                <polygon points="3 11 22 2 13 21 11 13 3 11" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="card-headline-clean" style={{ fontSize: '14px', fontWeight: 700, color: '#1E293B', margin: 0 }}>
-                Topologia de Sensores no Campo
-              </h2>
-              <p className="card-muted-desc" style={{ fontSize: '11px', fontWeight: 500, color: '#64748B', margin: '2px 0 0' }}>
-                Visualização da área de cobertura georreferenciada e dispersão dos nós
-              </p>
-            </div>
-          </div>
-
-          {/* Filter Pills */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              background: 'rgba(255, 255, 255, 0.9)',
-              border: '1px solid rgba(255, 255, 255, 0.7)',
-              backdropFilter: 'blur(12px)',
-              padding: '4px',
-              borderRadius: '16px',
-            }}
-          >
-            <button
-              type="button"
-              className={`view-toggle-btn ${topologyFilter === 'todos' ? 'active' : ''}`}
-              style={{
-                background: topologyFilter === 'todos' ? '#133E26' : 'transparent',
-                color: topologyFilter === 'todos' ? '#FFFFFF' : '#334155',
-                borderRadius: '12px',
-                padding: '6px 14px',
-                fontSize: '12px',
-                fontWeight: 600,
-                border: 'none',
-                cursor: 'pointer',
-              }}
-              onClick={() => setTopologyFilter('todos')}
-            >
-              Todos (24)
-            </button>
-            <button
-              type="button"
-              className={`view-toggle-btn ${topologyFilter === 'solo' ? 'active' : ''}`}
-              style={{
-                background: topologyFilter === 'solo' ? '#133E26' : 'transparent',
-                color: topologyFilter === 'solo' ? '#FFFFFF' : '#334155',
-                borderRadius: '12px',
-                padding: '6px 14px',
-                fontSize: '12px',
-                fontWeight: 600,
-                border: 'none',
-                cursor: 'pointer',
-              }}
-              onClick={() => setTopologyFilter('solo')}
-            >
-              Solo / FDR (16)
-            </button>
-            <button
-              type="button"
-              className={`view-toggle-btn ${topologyFilter === 'ar' ? 'active' : ''}`}
-              style={{
-                background: topologyFilter === 'ar' ? '#133E26' : 'transparent',
-                color: topologyFilter === 'ar' ? '#FFFFFF' : '#334155',
-                borderRadius: '12px',
-                padding: '6px 14px',
-                fontSize: '12px',
-                fontWeight: 600,
-                border: 'none',
-                cursor: 'pointer',
-              }}
-              onClick={() => setTopologyFilter('ar')}
-            >
-              Microclima / Ar (8)
-            </button>
-            <button
-              type="button"
-              className={`view-toggle-btn ${topologyFilter === 'alerta' ? 'active' : ''}`}
-              style={{
-                background: topologyFilter === 'alerta' ? '#133E26' : 'transparent',
-                color: topologyFilter === 'alerta' ? '#FFFFFF' : '#B45309',
-                borderRadius: '12px',
-                padding: '6px 14px',
-                fontSize: '12px',
-                fontWeight: 600,
-                border: 'none',
-                cursor: 'pointer',
-              }}
-              onClick={() => setTopologyFilter('alerta')}
-            >
-              Em Alerta (2)
-            </button>
-          </div>
-        </div>
-
-        {/* Mapa com Imagem de Satélite Real da Fazenda */}
-        <div className="sensor-map-container" style={{ height: 460 }}>
-          <div
-            className="sensor-map-bg"
-            style={{
-              transform: `scale(${zoomLevel})`,
-              transformOrigin: 'center center',
-              transition: 'transform 0.3s ease',
-            }}
-          >
-            {/* SVG Mesh Vector Lines (Dashed verde suave ligando os nós ao gateway) */}
-            <svg
-              viewBox="0 0 1000 460"
               style={{
                 position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                pointerEvents: 'none',
-                zIndex: 3,
-              }}
-            >
-              <line x1="580" y1="195" x2="440" y2="165" stroke="#C0ECD9" strokeWidth="1.5" strokeDasharray="4 4" strokeOpacity="0.7" />
-              <line x1="580" y1="195" x2="490" y2="221" stroke="#C0ECD9" strokeWidth="1.5" strokeDasharray="4 4" strokeOpacity="0.7" />
-              <line x1="580" y1="195" x2="420" y2="207" stroke="#EF4444" strokeWidth="1.8" strokeDasharray="4 4" strokeOpacity="0.8" />
-              <line x1="580" y1="195" x2="720" y2="175" stroke="#C0ECD9" strokeWidth="1.5" strokeDasharray="4 4" strokeOpacity="0.7" />
-              <line x1="580" y1="195" x2="740" y2="207" stroke="#C0ECD9" strokeWidth="1.5" strokeDasharray="4 4" strokeOpacity="0.7" />
-              <line x1="580" y1="195" x2="700" y2="235" stroke="#C0ECD9" strokeWidth="1.5" strokeDasharray="4 4" strokeOpacity="0.7" />
-            </svg>
-
-            {/* Central LoRa Gateway Pin (Torre Central no centro de operações) */}
-            <div
-              className="sensor-gateway-beacon"
-              style={{
-                top: '42.5%',
-                left: '58%',
-                width: 44,
-                height: 44,
-                background: '#15803D',
-                border: '2.5px solid #FFFFFF',
-                boxShadow: '0 0 18px rgba(34, 197, 94, 0.75)',
-              }}
-              title="Gateway Petrolina-04 • Concentrador US915 Ativo"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.5">
-                <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
-                <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5" />
-                <circle cx="12" cy="12" r="2" fill="#FFFFFF" />
-                <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5" />
-                <path d="M19.1 4.9C23 8.8 23 15.1 19.1 19" />
-              </svg>
-            </div>
-
-            {/* Sensor Nodes on Agricultural Parcels */}
-            <div className="sensor-map-overlay" style={{ zIndex: 4 }}>
-              <div className="sensor-map-grid">
-                {filteredNodes.map((s) => {
-                  const isRed = s.type === 'alerta';
-                  const isBlue = s.type === 'ar';
-                  const isSelected = selectedNode?.id === s.id;
-
-                  return (
-                    <button
-                      type="button"
-                      key={s.id}
-                      className="sensor-node-dot"
-                      style={{
-                        top: s.top,
-                        left: s.left,
-                        width: 38,
-                        height: 38,
-                        background: isRed ? '#BA1A1A' : isBlue ? '#156BDE' : '#15803D',
-                        border: '2px solid #FFFFFF',
-                        borderRadius: '9999px',
-                        boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.25)',
-                        position: 'absolute',
-                        color: '#FFFFFF',
-                        fontWeight: 800,
-                        fontSize: '11px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        outline: isSelected ? '3px solid #FBBF24' : 'none',
-                        outlineOffset: '2px',
-                        cursor: 'pointer',
-                      }}
-                      onClick={() => setSelectedNode(s)}
-                      title={`${s.label} (${s.talhao}) • ${s.vwc} • ${s.temp}`}
-                    >
-                      {s.id}
-                      {/* Little indicator sub-dot */}
-                      <span
-                        style={{
-                          position: 'absolute',
-                          width: 8,
-                          height: 8,
-                          right: 2,
-                          bottom: 2,
-                          borderRadius: '9999px',
-                          background: isRed ? '#F06A6A' : isBlue ? '#ADC6FF' : '#95F8A7',
-                          border: '1px solid #FFFFFF',
-                        }}
-                      />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Compass (N) on Top-Right */}
-            <div className="map-compass" style={{ top: 16, right: 16 }}>
-              <svg width="34" height="34" viewBox="0 0 30 30" fill="none">
-                <circle cx="15" cy="15" r="14" stroke="#CBD5E1" strokeWidth="1.5" fill="rgba(255,255,255,0.95)" />
-                <polygon points="15,4 18,15 15,13 12,15" fill="#0F172A" />
-                <polygon points="15,26 18,15 15,17 12,15" fill="#94A3B8" />
-                <text x="15" y="8" textAnchor="middle" fontSize="6.5" fontWeight="800" fill="#0F172A">N</text>
-              </svg>
-            </div>
-
-            {/* Zoom Controls (+ / -) on Bottom-Right */}
-            <div className="map-zoom-controls" style={{ bottom: 20, right: 16 }}>
-              <button
-                type="button"
-                className="map-zoom-btn"
-                onClick={handleZoomIn}
-                title="Aumentar Zoom do Mapa"
-              >
-                +
-              </button>
-              <button
-                type="button"
-                className="map-zoom-btn"
-                onClick={handleZoomOut}
-                title="Diminuir Zoom do Mapa"
-              >
-                −
-              </button>
-            </div>
-          </div>
-
-          {/* Bottom Area Badge (Left) */}
-          <div className="sensor-map-footer-info" style={{ bottom: 16, left: 16 }}>
-            <div
-              className="map-area-badge"
-              style={{
-                background: 'rgba(255, 255, 255, 0.95)',
-                border: '1px solid rgba(255, 255, 255, 0.6)',
-                backdropFilter: 'blur(12px)',
-                borderRadius: '16px',
-                padding: '10px 16px',
-                display: 'inline-flex',
+                bottom: 20,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(15, 23, 42, 0.94)',
+                backdropFilter: 'blur(8px)',
+                color: '#FFFFFF',
+                padding: '8px 18px',
+                borderRadius: 24,
+                fontSize: '0.82rem',
+                display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
+                gap: 12,
+                boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
+                zIndex: 10,
               }}
             >
-              <div
-                style={{
-                  width: 34,
-                  height: 34,
-                  background: '#ECFDF5',
-                  border: '1px solid #D1FAE5',
-                  borderRadius: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
+              <strong>{selectedNode.label}</strong>
+              <span>• {selectedNode.talhao}</span>
+              <span style={{ color: '#34D399', fontWeight: 700 }}>VWC: {selectedNode.vwc}</span>
+              <span style={{ color: '#38BDF8' }}>Temp: {selectedNode.temp}</span>
+              <button
+                type="button"
+                style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: '1rem', marginLeft: 6 }}
+                onClick={() => setSelectedNode(null)}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#047857" strokeWidth="2">
-                  <path d="M12 2a8 8 0 0 0-8 8c0 5.5 8 14 8 14s8-8.5 8-14a8 8 0 0 0-8-8z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#1E293B' }}>Área de cultivo</span>
-                <span style={{ fontSize: '11px', fontWeight: 500, color: '#64748B' }}>Vale do São Francisco – PE (45.0 ha)</span>
-              </div>
+                ×
+              </button>
             </div>
-
-            {/* Node Info Popover if Selected */}
-            {selectedNode && (
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  marginLeft: 12,
-                  background: 'rgba(15, 23, 42, 0.92)',
-                  backdropFilter: 'blur(8px)',
-                  color: '#FFFFFF',
-                  padding: '6px 14px',
-                  borderRadius: 20,
-                  fontSize: '0.78rem',
-                }}
-              >
-                <strong>{selectedNode.label}</strong>
-                <span>• {selectedNode.talhao}</span>
-                <span style={{ color: '#34D399', fontWeight: 700 }}>VWC: {selectedNode.vwc}</span>
-                <span style={{ color: '#38BDF8' }}>Temp: {selectedNode.temp}</span>
-                <button
-                  type="button"
-                  style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: '0.9rem' }}
-                  onClick={() => setSelectedNode(null)}
-                >
-                  ×
-                </button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Map Legend Footer */}
